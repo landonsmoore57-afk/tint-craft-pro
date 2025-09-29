@@ -115,7 +115,11 @@ async function fetchLogoAsDataUrl(logoUrl: string | null): Promise<{ dataUrl: st
     const base64 = btoa(binary);
     
     const dataUrl = `data:${contentType};base64,${base64}`;
-    console.log('Logo converted to data URL, size:', base64.length, 'chars');
+    console.log('Logo converted to data URL');
+    console.log('- Content Type:', contentType);
+    console.log('- Base64 length:', base64.length);
+    console.log('- Data URL length:', dataUrl.length);
+    console.log('- Data URL preview:', dataUrl.substring(0, 100));
     
     return { dataUrl, error: null };
   } catch (error: any) {
@@ -311,10 +315,13 @@ Deno.serve(async (req) => {
       filmMap,
     });
 
+    console.log('Generating HTML with logo:', logoDataUrl ? 'Yes' : 'No');
+    console.log('Theme style:', companySettings.theme_style);
+    
     return new Response(html, {
       headers: {
         ...corsHeaders,
-        'Content-Type': 'text/html',
+        'Content-Type': 'text/html; charset=utf-8',
         'Content-Disposition': `inline; filename="quote-${quote.quote_number}.html"`,
       },
     });
@@ -357,8 +364,11 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, t
     .filter(Boolean);
 
   const logoHtml = logoDataUrl 
-    ? `<img src="${logoDataUrl}" alt="Logo" style="max-height: 56px; max-width: 200px; object-fit: contain;">`
+    ? `<img src="${logoDataUrl}" alt="${settings.company_name} Logo" style="max-height: 56px; max-width: 200px; object-fit: contain; display: block;">`
     : generateMonogram(settings.company_name, brandColor);
+  
+  console.log('Logo HTML generated:', logoDataUrl ? 'Using data URL image' : 'Using monogram');
+  console.log('Logo data URL length:', logoDataUrl?.length || 0);
 
   return `
 <!DOCTYPE html>
@@ -413,6 +423,16 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, t
       display: flex;
       flex-direction: column;
       gap: 8px;
+      align-items: flex-start;
+    }
+    
+    .logo-container img {
+      display: block;
+      max-height: 56px;
+      max-width: 200px;
+      height: auto;
+      width: auto;
+      object-fit: contain;
     }
     
     .company-info {
@@ -766,10 +786,12 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, t
   <div class="header">
     <div class="logo-container">
       ${logoHtml}
+      ${settings.tagline ? `<div class="tagline">${settings.tagline}</div>` : ''}
     </div>
     <div class="company-info">
       <div class="company-name">${settings.company_name}</div>
-      ${settings.tagline ? `<div class="tagline">${settings.tagline}</div>` : ''}
+      <div class="quote-label">Quote</div>
+      <div class="quote-number">${quote.quote_number || 'Draft'}</div>
     </div>
   </div>
 
