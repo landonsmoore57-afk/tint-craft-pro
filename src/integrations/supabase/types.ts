@@ -22,6 +22,8 @@ export type Database = {
           id: string
           logo_url: string | null
           pdf_footer_terms: string | null
+          tagline: string | null
+          theme_style: string | null
           updated_at: string | null
         }
         Insert: {
@@ -31,6 +33,8 @@ export type Database = {
           id?: string
           logo_url?: string | null
           pdf_footer_terms?: string | null
+          tagline?: string | null
+          theme_style?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -40,6 +44,8 @@ export type Database = {
           id?: string
           logo_url?: string | null
           pdf_footer_terms?: string | null
+          tagline?: string | null
+          theme_style?: string | null
           updated_at?: string | null
         }
         Relationships: []

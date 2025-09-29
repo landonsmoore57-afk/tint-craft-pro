@@ -14,6 +14,144 @@ interface FilmData {
   sell_per_sqft: number;
 }
 
+// Color manipulation helpers
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return "#" + [r, g, b].map(x => {
+    const hex = Math.round(x).toString(16);
+    return hex.length === 1 ? "0" + hex : hex;
+  }).join('');
+}
+
+function lightenColor(hex: string, percent: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  
+  const amount = Math.round(2.55 * percent);
+  return rgbToHex(
+    Math.min(255, rgb.r + amount),
+    Math.min(255, rgb.g + amount),
+    Math.min(255, rgb.b + amount)
+  );
+}
+
+function darkenColor(hex: string, percent: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  
+  const amount = Math.round(2.55 * percent);
+  return rgbToHex(
+    Math.max(0, rgb.r - amount),
+    Math.max(0, rgb.g - amount),
+    Math.max(0, rgb.b - amount)
+  );
+}
+
+function normalizeBrandColor(hex: string | null): string {
+  if (!hex) return '#0891B2';
+  const normalized = hex.trim();
+  if (!/^#[0-9A-Fa-f]{6}$/.test(normalized)) return '#0891B2';
+  return normalized;
+}
+
+// Fetch and convert logo to base64 data URL
+async function fetchLogoAsDataUrl(logoUrl: string | null): Promise<{ dataUrl: string | null; error: string | null }> {
+  if (!logoUrl) {
+    return { dataUrl: null, error: 'No logo URL provided' };
+  }
+
+  try {
+    console.log('Fetching logo from:', logoUrl);
+
+    // Handle data URLs directly
+    if (logoUrl.startsWith('data:')) {
+      return { dataUrl: logoUrl, error: null };
+    }
+
+    // Fetch the image
+    const response = await fetch(logoUrl);
+    
+    if (!response.ok) {
+      console.error('Logo fetch failed:', response.status, response.statusText);
+      return { dataUrl: null, error: `HTTP ${response.status}` };
+    }
+
+    const contentType = response.headers.get('content-type') || 'image/png';
+    
+    // Validate content type
+    if (!contentType.startsWith('image/')) {
+      console.error('Invalid content type:', contentType);
+      return { dataUrl: null, error: 'Not an image' };
+    }
+
+    // Get image bytes
+    const arrayBuffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    
+    // Check size (4MB max)
+    if (bytes.length > 4 * 1024 * 1024) {
+      console.error('Logo too large:', bytes.length, 'bytes');
+      return { dataUrl: null, error: 'File too large' };
+    }
+
+    if (bytes.length === 0) {
+      console.error('Empty logo file');
+      return { dataUrl: null, error: 'Empty file' };
+    }
+
+    // Convert to base64
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
+    
+    const dataUrl = `data:${contentType};base64,${base64}`;
+    console.log('Logo converted to data URL, size:', base64.length, 'chars');
+    
+    return { dataUrl, error: null };
+  } catch (error: any) {
+    console.error('Logo fetch error:', error.message);
+    return { dataUrl: null, error: error.message };
+  }
+}
+
+// Generate monogram fallback
+function generateMonogram(companyName: string, brandColor: string): string {
+  const initials = companyName
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  return `
+    <div style="
+      width: 56px;
+      height: 56px;
+      background: ${brandColor};
+      color: white;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 700;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    ">
+      ${initials}
+    </div>
+  `;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -76,6 +214,21 @@ Deno.serve(async (req) => {
 
     if (settingsError && settingsError.code !== 'PGRST116') throw settingsError;
 
+    const companySettings = settings || {
+      company_name: 'STL Window Tinting',
+      brand_color_hex: '#0891B2',
+      logo_url: null,
+      pdf_footer_terms: 'Payment Terms: 50% deposit due upon approval. Balance due upon completion.',
+      theme_style: 'Modern',
+      tagline: null,
+    };
+
+    // Fetch and embed logo
+    const { dataUrl: logoDataUrl, error: logoError } = await fetchLogoAsDataUrl(companySettings.logo_url);
+    if (logoError) {
+      console.log('Logo fetch failed, using monogram fallback:', logoError);
+    }
+
     // Calculate quote totals (replicate client-side logic)
     const filmMap = new Map(films.map((f: FilmData) => [f.id, f]));
     
@@ -100,6 +253,10 @@ Deno.serve(async (req) => {
         const resolvedFilm = resolveFilm(window.window_film_id, section.section_film_id, quote.global_film_id);
         const sellPerSqft = window.override_sell_per_sqft ?? resolvedFilm?.sell_per_sqft ?? 0;
         const lineTotal = effectiveAreaSqft * sellPerSqft;
+        
+        // Track if override was used
+        const hasOverride = window.override_sell_per_sqft !== null || 
+                          (window.window_film_id !== null && window.window_film_id !== section.section_film_id && window.window_film_id !== quote.global_film_id);
 
         calculatedWindows.push({
           ...window,
@@ -108,6 +265,7 @@ Deno.serve(async (req) => {
           resolved_film: resolvedFilm,
           sell_per_sqft: sellPerSqft,
           line_total: lineTotal,
+          has_override: hasOverride,
         });
 
         subtotal += lineTotal;
@@ -129,17 +287,14 @@ Deno.serve(async (req) => {
     const taxAmount = taxableBase * ((quote.tax_percent || 0) / 100);
     const grandTotal = subtotalAfterDiscounts + travelFee + taxAmount;
     const depositDue = grandTotal * ((quote.deposit_percent || 0) / 100);
+    const totalSavings = discountFlatAmount + discountPercentAmount;
 
     // Generate HTML
     const html = generatePDFHTML({
       quote,
       sections: calculatedSections,
-      settings: settings || {
-        company_name: 'STL Window Tinting',
-        brand_color_hex: '#0891B2',
-        logo_url: null,
-        pdf_footer_terms: 'Payment Terms: 50% deposit due upon approval. Balance due upon completion.',
-      },
+      settings: companySettings,
+      logoDataUrl,
       totals: {
         subtotal,
         discount_flat_amount: discountFlatAmount,
@@ -150,6 +305,7 @@ Deno.serve(async (req) => {
         tax_amount: taxAmount,
         grand_total: grandTotal,
         deposit_due: depositDue,
+        total_savings: totalSavings,
       },
       filmMap,
     });
@@ -170,11 +326,16 @@ Deno.serve(async (req) => {
   }
 });
 
-function generatePDFHTML({ quote, sections, settings, totals, filmMap }: any): string {
+function generatePDFHTML({ quote, sections, settings, logoDataUrl, totals, filmMap }: any): string {
   const formatCurrency = (amount: number) => 
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   
   const formatSqft = (sqft: number) => sqft.toFixed(2);
+
+  const brandColor = normalizeBrandColor(settings.brand_color_hex);
+  const brandTint = lightenColor(brandColor, 42);
+  const brandShade = darkenColor(brandColor, 18);
+  const brandPattern = lightenColor(brandColor, 48);
 
   const usedFilms = new Set<string>();
   sections.forEach((section: any) => {
@@ -189,6 +350,10 @@ function generatePDFHTML({ quote, sections, settings, totals, filmMap }: any): s
     .map(filmId => filmMap.get(filmId))
     .filter(Boolean);
 
+  const logoHtml = logoDataUrl 
+    ? `<img src="${logoDataUrl}" alt="Logo" style="max-height: 56px; max-width: 200px; object-fit: contain;">`
+    : generateMonogram(settings.company_name, brandColor);
+
   return `
 <!DOCTYPE html>
 <html>
@@ -196,183 +361,481 @@ function generatePDFHTML({ quote, sections, settings, totals, filmMap }: any): s
   <meta charset="UTF-8">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    
     body { 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
       line-height: 1.6;
       color: #1e293b;
       background: white;
-      padding: 40px;
+      padding: 32px;
     }
+    
     .header {
-      border-bottom: 4px solid ${settings.brand_color_hex};
-      padding-bottom: 20px;
-      margin-bottom: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px;
+      background: linear-gradient(135deg, ${brandPattern} 0%, ${brandTint} 100%);
+      background-image: 
+        repeating-linear-gradient(
+          45deg,
+          ${brandColor}08 0px,
+          ${brandColor}08 1px,
+          transparent 1px,
+          transparent 20px
+        ),
+        linear-gradient(135deg, ${brandPattern} 0%, ${brandTint} 100%);
+      border-radius: 12px;
+      margin-bottom: 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    
+    .logo-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .company-info {
+      text-align: right;
+    }
+    
+    .company-name { 
+      font-size: 20px; 
+      font-weight: 700; 
+      color: ${brandShade};
+      margin-bottom: 4px;
+    }
+    
+    .tagline {
+      font-size: 13px;
+      color: #64748b;
+      font-style: italic;
+    }
+    
+    .quote-label {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #64748b;
+      font-weight: 600;
+    }
+    
+    .quote-number {
+      font-size: 24px;
+      font-weight: 700;
+      color: ${brandColor};
+    }
+    
+    .hero-band {
+      background: linear-gradient(135deg, ${brandColor} 0%, ${brandShade} 100%);
+      color: white;
+      padding: 32px;
+      border-radius: 12px;
+      margin-bottom: -20px;
+      box-shadow: 0 4px 12px ${brandColor}40;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .hero-content {
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .logo { max-height: 60px; max-width: 200px; }
-    .company-name { font-size: 28px; font-weight: bold; color: ${settings.brand_color_hex}; }
-    .customer-block {
-      background: #f8fafc;
+    
+    .grand-total-section h2 {
+      font-size: 14px;
+      font-weight: 600;
+      opacity: 0.9;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    
+    .grand-total-amount {
+      font-size: 48px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    
+    .deposit-info {
+      font-size: 16px;
+      opacity: 0.9;
+      margin-top: 12px;
+    }
+    
+    .quote-meta {
+      text-align: right;
+      opacity: 0.95;
+    }
+    
+    .quote-meta div {
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+    
+    .customer-card {
+      background: white;
+      padding: 32px;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      margin-top: 40px;
+      margin-bottom: 32px;
+    }
+    
+    .customer-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    
+    .info-item {
+      display: flex;
+      align-items: start;
+      gap: 12px;
+    }
+    
+    .icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    
+    .info-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+    
+    .info-value {
+      font-size: 15px;
+      color: #1e293b;
+      font-weight: 500;
+    }
+    
+    .film-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 32px;
       padding: 20px;
+      background: ${brandTint}20;
+      border-radius: 12px;
+      border: 1px solid ${brandTint};
+    }
+    
+    .film-chip {
+      background: white;
+      padding: 10px 16px;
       border-radius: 8px;
-      margin-bottom: 30px;
+      border: 1px solid #e2e8f0;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
-    .customer-block h2 { color: ${settings.brand_color_hex}; margin-bottom: 15px; }
-    .info-row { display: grid; grid-template-columns: 150px 1fr; margin-bottom: 8px; }
-    .info-label { font-weight: 600; color: #64748b; }
-    .totals-summary {
-      background: linear-gradient(135deg, ${settings.brand_color_hex}15, ${settings.brand_color_hex}05);
-      padding: 20px;
-      border-radius: 8px;
-      margin-bottom: 30px;
-      border-left: 4px solid ${settings.brand_color_hex};
+    
+    .film-chip strong {
+      color: ${brandShade};
+      font-weight: 600;
     }
-    .totals-summary h2 { color: ${settings.brand_color_hex}; margin-bottom: 15px; }
-    .total-row { 
-      display: flex; 
-      justify-content: space-between; 
-      padding: 8px 0;
-      border-bottom: 1px solid #e2e8f0;
+    
+    .vlt-badge {
+      background: ${brandTint};
+      color: ${brandShade};
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
     }
-    .total-row:last-child { border-bottom: none; font-weight: bold; font-size: 18px; }
-    .film-legend {
-      background: #f1f5f9;
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 30px;
+    
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin-bottom: 32px;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
-    .film-legend h3 { color: #475569; margin-bottom: 10px; font-size: 14px; }
-    .film-item { margin-bottom: 8px; font-size: 13px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+    
     th { 
-      background: ${settings.brand_color_hex}; 
+      background: ${brandColor}; 
       color: white; 
-      padding: 12px 8px;
+      padding: 16px 12px;
       text-align: left;
       font-weight: 600;
-      font-size: 14px;
-    }
-    td { 
-      padding: 10px 8px; 
-      border-bottom: 1px solid #e2e8f0;
       font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
-    .section-header {
-      background: #f8fafc;
-      font-weight: bold;
-      color: ${settings.brand_color_hex};
-    }
-    .section-total {
-      background: #f1f5f9;
-      font-weight: bold;
+    
+    th:nth-child(n+4) {
       text-align: right;
     }
+    
+    td { 
+      padding: 14px 12px; 
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 14px;
+    }
+    
+    td:nth-child(n+4) {
+      text-align: right;
+    }
+    
+    tr:nth-child(even) {
+      background: ${brandTint}10;
+    }
+    
+    .section-header {
+      background: ${brandTint}40 !important;
+      font-weight: 700;
+      color: ${brandShade};
+      font-size: 15px;
+    }
+    
+    .section-header td {
+      padding: 16px 12px;
+      border-bottom: 2px solid ${brandTint};
+    }
+    
+    .room-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: ${brandColor};
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 14px;
+    }
+    
+    .section-label {
+      font-size: 11px;
+      opacity: 0.8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .section-total {
+      background: ${brandTint}30 !important;
+      font-weight: 700;
+      font-size: 15px;
+    }
+    
+    .section-total td {
+      padding: 14px 12px;
+      border-bottom: 2px solid ${brandTint};
+    }
+    
+    .override-badge {
+      display: inline-block;
+      background: #f59e0b;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-left: 6px;
+      text-transform: uppercase;
+    }
+    
+    .savings-banner {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      margin-bottom: 32px;
+      text-align: center;
+      font-size: 16px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    
+    .notes-block {
+      background: #fffbeb;
+      padding: 20px 24px;
+      border-radius: 12px;
+      border-left: 4px solid #f59e0b;
+      margin-bottom: 32px;
+    }
+    
+    .notes-block h3 {
+      color: #92400e;
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+    
+    .notes-block p {
+      color: #78350f;
+      font-size: 14px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+    
     .footer {
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 2px solid #e2e8f0;
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 2px solid ${brandTint};
+    }
+    
+    .footer-content {
       font-size: 12px;
       color: #64748b;
       line-height: 1.8;
     }
-    .page-break { page-break-after: always; }
+    
+    .footer-company {
+      font-weight: 700;
+      color: ${brandShade};
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    
+    .signature-line {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .signature-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .signature-label {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 600;
+    }
+    
+    .signature-underline {
+      width: 250px;
+      border-bottom: 2px solid #cbd5e1;
+      height: 40px;
+    }
+    
     @media print {
-      body { padding: 20px; }
+      body { padding: 16px; }
       .page-break { page-break-after: always; }
+      table { page-break-inside: avoid; }
+      .section-header { page-break-after: avoid; }
+      .customer-card, .hero-band { page-break-inside: avoid; }
     }
   </style>
 </head>
 <body>
   <div class="header">
-    <div>
-      ${settings.logo_url ? `<img src="${settings.logo_url}" alt="Logo" class="logo">` : `<div class="company-name">${settings.company_name}</div>`}
+    <div class="logo-container">
+      ${logoHtml}
     </div>
-    <div style="text-align: right;">
-      <div style="font-size: 24px; font-weight: bold; color: ${settings.brand_color_hex};">QUOTE</div>
-      <div style="font-size: 18px; margin-top: 5px;">${quote.quote_number}</div>
-    </div>
-  </div>
-
-  <div class="customer-block">
-    <h2>Customer Information</h2>
-    <div class="info-row">
-      <div class="info-label">Customer:</div>
-      <div>${quote.customer_name}</div>
-    </div>
-    ${quote.customer_email ? `
-    <div class="info-row">
-      <div class="info-label">Email:</div>
-      <div>${quote.customer_email}</div>
-    </div>` : ''}
-    ${quote.customer_phone ? `
-    <div class="info-row">
-      <div class="info-label">Phone:</div>
-      <div>${quote.customer_phone}</div>
-    </div>` : ''}
-    ${quote.site_address ? `
-    <div class="info-row">
-      <div class="info-label">Site Address:</div>
-      <div>${quote.site_address}</div>
-    </div>` : ''}
-    <div class="info-row">
-      <div class="info-label">Date:</div>
-      <div>${new Date(quote.created_at).toLocaleDateString()}</div>
-    </div>
-    <div class="info-row">
-      <div class="info-label">Status:</div>
-      <div>${quote.status}</div>
+    <div class="company-info">
+      <div class="company-name">${settings.company_name}</div>
+      ${settings.tagline ? `<div class="tagline">${settings.tagline}</div>` : ''}
     </div>
   </div>
 
-  <div class="totals-summary">
-    <h2>Quote Summary</h2>
-    <div class="total-row">
-      <span>Subtotal:</span>
-      <span>${formatCurrency(totals.subtotal)}</span>
+  <div class="hero-band">
+    <div class="hero-content">
+      <div class="grand-total-section">
+        <h2>Total Investment</h2>
+        <div class="grand-total-amount">${formatCurrency(totals.grand_total)}</div>
+        ${totals.deposit_due > 0 ? `
+          <div class="deposit-info">Deposit Due: ${formatCurrency(totals.deposit_due)}</div>
+        ` : ''}
+      </div>
+      <div class="quote-meta">
+        <div class="quote-label">Quote Number</div>
+        <div class="quote-number">${quote.quote_number}</div>
+        <div style="margin-top: 12px;">${new Date(quote.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+        <div>Status: <strong>${quote.status}</strong></div>
+      </div>
     </div>
-    ${totals.discount_flat_amount > 0 ? `
-    <div class="total-row">
-      <span>Discount (Flat):</span>
-      <span>-${formatCurrency(totals.discount_flat_amount)}</span>
-    </div>` : ''}
-    ${totals.discount_percent_amount > 0 ? `
-    <div class="total-row">
-      <span>Discount (${quote.discount_percent}%):</span>
-      <span>-${formatCurrency(totals.discount_percent_amount)}</span>
-    </div>` : ''}
-    ${totals.travel_fee > 0 ? `
-    <div class="total-row">
-      <span>Travel Fee:</span>
-      <span>${formatCurrency(totals.travel_fee)}</span>
-    </div>` : ''}
-    ${totals.tax_amount > 0 ? `
-    <div class="total-row">
-      <span>Tax (${quote.tax_percent}%):</span>
-      <span>${formatCurrency(totals.tax_amount)}</span>
-    </div>` : ''}
-    <div class="total-row">
-      <span>Grand Total:</span>
-      <span>${formatCurrency(totals.grand_total)}</span>
-    </div>
-    ${totals.deposit_due > 0 ? `
-    <div class="total-row">
-      <span>Deposit Due (${quote.deposit_percent}%):</span>
-      <span>${formatCurrency(totals.deposit_due)}</span>
-    </div>` : ''}
   </div>
+
+  <div class="customer-card">
+    <div class="customer-grid">
+      <div class="info-item">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+        </svg>
+        <div>
+          <div class="info-label">Customer</div>
+          <div class="info-value">${quote.customer_name}</div>
+        </div>
+      </div>
+      
+      ${quote.site_address ? `
+      <div class="info-item">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        <div>
+          <div class="info-label">Site Address</div>
+          <div class="info-value">${quote.site_address}</div>
+        </div>
+      </div>
+      ` : ''}
+      
+      ${quote.customer_email ? `
+      <div class="info-item">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        <div>
+          <div class="info-label">Email</div>
+          <div class="info-value">${quote.customer_email}</div>
+        </div>
+      </div>
+      ` : ''}
+      
+      ${quote.customer_phone ? `
+      <div class="info-item">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+        </svg>
+        <div>
+          <div class="info-label">Phone</div>
+          <div class="info-value">${quote.customer_phone}</div>
+        </div>
+      </div>
+      ` : ''}
+    </div>
+  </div>
+
+  ${totals.total_savings > 0 ? `
+    <div class="savings-banner">
+      🎉 You're saving ${formatCurrency(totals.total_savings)} on this quote!
+    </div>
+  ` : ''}
 
   ${filmLegend.length > 0 ? `
-  <div class="film-legend">
-    <h3>FILMS USED IN THIS QUOTE</h3>
-    ${filmLegend.map((film: any) => `
-      <div class="film-item">
-        <strong>${film.brand} ${film.series} - ${film.name}</strong>
-        ${film.vlt !== null ? ` • ${film.vlt}% VLT` : ''} • ${formatCurrency(film.sell_per_sqft)}/sqft
-      </div>
-    `).join('')}
-  </div>` : ''}
+    <div class="film-chips">
+      ${filmLegend.map((film: any) => `
+        <div class="film-chip">
+          <strong>${film.brand} ${film.series} ${film.name}</strong>
+          ${film.vlt !== null ? `<span class="vlt-badge">${film.vlt}% VLT</span>` : ''}
+          <span style="color: #64748b;">•</span>
+          <span>${formatCurrency(film.sell_per_sqft)}/sqft</span>
+        </div>
+      `).join('')}
+    </div>
+  ` : ''}
 
   <table>
     <thead>
@@ -389,7 +852,12 @@ function generatePDFHTML({ quote, sections, settings, totals, filmMap }: any): s
     <tbody>
       ${sections.map((section: any) => `
         <tr class="section-header">
-          <td colspan="7">${section.custom_room_name || section.rooms?.name || section.name}</td>
+          <td colspan="7">
+            <span class="room-pill">
+              <span class="section-label">Section</span>
+              <span>${section.custom_room_name || section.rooms?.name || section.name}</span>
+            </span>
+          </td>
         </tr>
         ${section.windows.map((window: any) => `
           <tr>
@@ -398,12 +866,15 @@ function generatePDFHTML({ quote, sections, settings, totals, filmMap }: any): s
             <td>${window.width_in}" × ${window.height_in}"</td>
             <td>${window.quantity}</td>
             <td>${formatSqft(window.effective_area_sqft)}</td>
-            <td>${formatCurrency(window.sell_per_sqft)}</td>
+            <td>
+              ${formatCurrency(window.sell_per_sqft)}
+              ${window.has_override ? '<span class="override-badge">Override</span>' : ''}
+            </td>
             <td>${formatCurrency(window.line_total)}</td>
           </tr>
         `).join('')}
         <tr class="section-total">
-          <td colspan="6">Section Total:</td>
+          <td colspan="6" style="text-align: right; padding-right: 12px;">Section Total:</td>
           <td>${formatCurrency(section.section_total)}</td>
         </tr>
       `).join('')}
@@ -411,18 +882,26 @@ function generatePDFHTML({ quote, sections, settings, totals, filmMap }: any): s
   </table>
 
   ${quote.notes_customer ? `
-  <div style="background: #fffbeb; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b; margin-bottom: 30px;">
-    <h3 style="color: #92400e; margin-bottom: 10px;">Notes</h3>
-    <p style="white-space: pre-wrap;">${quote.notes_customer}</p>
-  </div>` : ''}
+    <div class="notes-block">
+      <h3>Important Notes</h3>
+      <p>${quote.notes_customer}</p>
+    </div>
+  ` : ''}
 
   <div class="footer">
-    <div style="font-weight: bold; margin-bottom: 10px;">${settings.company_name}</div>
-    ${settings.pdf_footer_terms ? `<div style="margin-bottom: 15px;">${settings.pdf_footer_terms}</div>` : ''}
-    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-      <div style="display: flex; justify-content: space-between;">
-        <div>Customer Signature: _______________________</div>
-        <div>Date: _____________</div>
+    <div class="footer-company">${settings.company_name}</div>
+    <div class="footer-content">
+      ${settings.pdf_footer_terms || ''}
+    </div>
+    
+    <div class="signature-line">
+      <div class="signature-box">
+        <div class="signature-label">Customer Signature</div>
+        <div class="signature-underline"></div>
+      </div>
+      <div class="signature-box">
+        <div class="signature-label">Date</div>
+        <div class="signature-underline" style="width: 150px;"></div>
       </div>
     </div>
   </div>
