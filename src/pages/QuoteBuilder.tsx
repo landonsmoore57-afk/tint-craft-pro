@@ -373,18 +373,30 @@ export default function QuoteBuilder() {
 
       const { data, error } = await supabase.functions.invoke('generate-pdf', {
         body: { quoteId: id },
+        headers: {
+          'Accept': 'text/html',
+        },
       });
 
       if (error) throw error;
 
-      // Create a blob from the HTML response and open in new window
-      const blob = new Blob([data], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
+      // Create a printable HTML window
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(data);
+        printWindow.document.close();
+        
+        // Trigger print dialog after content loads
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print();
+          }, 250);
+        };
+      }
 
       toast({
-        title: "PDF generated",
-        description: "Opening PDF in new window",
+        title: "PDF ready",
+        description: "Print dialog opened - save as PDF",
       });
     } catch (error: any) {
       toast({

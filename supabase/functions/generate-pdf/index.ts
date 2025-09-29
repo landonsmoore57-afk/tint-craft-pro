@@ -295,6 +295,7 @@ Deno.serve(async (req) => {
       sections: calculatedSections,
       settings: companySettings,
       logoDataUrl,
+      themeStyle: companySettings.theme_style || 'Modern',
       totals: {
         subtotal,
         discount_flat_amount: discountFlatAmount,
@@ -326,7 +327,7 @@ Deno.serve(async (req) => {
   }
 });
 
-function generatePDFHTML({ quote, sections, settings, logoDataUrl, totals, filmMap }: any): string {
+function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, totals, filmMap }: any): string {
   const formatCurrency = (amount: number) => 
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   
@@ -336,6 +337,11 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, totals, filmM
   const brandTint = lightenColor(brandColor, 42);
   const brandShade = darkenColor(brandColor, 18);
   const brandPattern = lightenColor(brandColor, 48);
+  
+  // Theme-specific styling
+  const isModern = themeStyle === 'Modern';
+  const isMinimal = themeStyle === 'Minimal';
+  const isBold = themeStyle === 'Bold';
 
   const usedFilms = new Set<string>();
   sections.forEach((section: any) => {
@@ -362,10 +368,18 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, totals, filmM
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
+    @media print {
+      body { padding: 0; }
+      .header { page-break-inside: avoid; }
+      .hero-band { page-break-inside: avoid; }
+      .totals-card { page-break-inside: avoid; }
+      .section-header { page-break-before: auto; page-break-after: avoid; }
+    }
+    
     body { 
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
       line-height: 1.6;
-      color: #1e293b;
+      color: ${isMinimal ? '#000000' : '#1e293b'};
       background: white;
       padding: 32px;
     }
@@ -374,20 +388,25 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, totals, filmM
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 24px;
-      background: linear-gradient(135deg, ${brandPattern} 0%, ${brandTint} 100%);
-      background-image: 
-        repeating-linear-gradient(
-          45deg,
-          ${brandColor}08 0px,
-          ${brandColor}08 1px,
-          transparent 1px,
-          transparent 20px
-        ),
-        linear-gradient(135deg, ${brandPattern} 0%, ${brandTint} 100%);
-      border-radius: 12px;
-      margin-bottom: 32px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      padding: ${isBold ? '32px' : '24px'};
+      ${isMinimal 
+        ? `background: white; border-bottom: 3px solid ${brandColor};` 
+        : isModern
+        ? `background: linear-gradient(135deg, ${brandPattern} 0%, ${brandTint} 100%);
+           background-image: 
+             repeating-linear-gradient(
+               45deg,
+               ${brandColor}08 0px,
+               ${brandColor}08 1px,
+               transparent 1px,
+               transparent 20px
+             ),
+             linear-gradient(135deg, ${brandPattern} 0%, ${brandTint} 100%);`
+        : `background: ${brandColor}; color: white;`
+      }
+      border-radius: ${isMinimal ? '0' : '12px'};
+      margin-bottom: ${isBold ? '40px' : '32px'};
+      box-shadow: ${isMinimal ? 'none' : '0 2px 8px rgba(0,0,0,0.06)'};
     }
     
     .logo-container {
@@ -401,9 +420,9 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, totals, filmM
     }
     
     .company-name { 
-      font-size: 20px; 
-      font-weight: 700; 
-      color: ${brandShade};
+      font-size: ${isBold ? '24px' : '20px'}; 
+      font-weight: ${isBold ? '800' : '700'}; 
+      color: ${isBold ? 'white' : isMinimal ? '#000000' : brandShade};
       margin-bottom: 4px;
     }
     
@@ -428,12 +447,14 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, totals, filmM
     }
     
     .hero-band {
-      background: linear-gradient(135deg, ${brandColor} 0%, ${brandShade} 100%);
-      color: white;
-      padding: 32px;
-      border-radius: 12px;
-      margin-bottom: -20px;
-      box-shadow: 0 4px 12px ${brandColor}40;
+      ${isMinimal 
+        ? `background: #f8f9fa; color: #000000; border-left: 4px solid ${brandColor};`
+        : `background: linear-gradient(135deg, ${brandColor} 0%, ${brandShade} 100%); color: white;`
+      }
+      padding: ${isBold ? '48px' : '32px'};
+      border-radius: ${isMinimal ? '0' : '12px'};
+      margin-bottom: ${isMinimal ? '24px' : '-20px'};
+      box-shadow: ${isMinimal ? 'none' : `0 4px 12px ${brandColor}40`};
       position: relative;
       z-index: 1;
     }
@@ -445,9 +466,9 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, totals, filmM
     }
     
     .grand-total-section h2 {
-      font-size: 14px;
-      font-weight: 600;
-      opacity: 0.9;
+      font-size: ${isBold ? '16px' : '14px'};
+      font-weight: ${isBold ? '700' : '600'};
+      opacity: ${isMinimal ? '0.7' : '0.9'};
       text-transform: uppercase;
       letter-spacing: 1px;
       margin-bottom: 8px;
@@ -610,11 +631,14 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, totals, filmM
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      background: ${brandColor};
-      color: white;
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 14px;
+      ${isMinimal
+        ? `background: white; color: ${brandColor}; border: 2px solid ${brandColor};`
+        : `background: ${brandColor}; color: white;`
+      }
+      padding: ${isBold ? '10px 18px' : '6px 14px'};
+      border-radius: ${isMinimal ? '4px' : '20px'};
+      font-size: ${isBold ? '16px' : '14px'};
+      font-weight: ${isBold ? '700' : '400'};
     }
     
     .section-label {
