@@ -22,6 +22,8 @@ export interface WindowData {
 export interface SectionData {
   id: string;
   name: string;
+  room_id: string | null;
+  custom_room_name: string | null;
   section_film_id: string | null;
   windows: WindowData[];
 }

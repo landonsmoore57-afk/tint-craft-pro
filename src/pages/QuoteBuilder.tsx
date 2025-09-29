@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Save, ArrowLeft } from "lucide-react";
+import { Plus, Save, ArrowLeft, Download } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { QuoteSection } from "@/components/quote/QuoteSection";
@@ -45,6 +45,8 @@ export default function QuoteBuilder() {
     {
       id: crypto.randomUUID(),
       name: "Main Area",
+      room_id: null,
+      custom_room_name: null,
       section_film_id: null,
       windows: [],
     },
@@ -124,6 +126,8 @@ export default function QuoteBuilder() {
       const loadedSections: SectionData[] = sectionsData.map(section => ({
         id: section.id,
         name: section.name,
+        room_id: section.room_id,
+        custom_room_name: section.custom_room_name,
         section_film_id: section.section_film_id,
         windows: windowsData
           .filter(w => w.section_id === section.id)
@@ -227,6 +231,8 @@ export default function QuoteBuilder() {
           .insert([{
             quote_id: quoteId,
             name: section.name,
+            room_id: section.room_id,
+            custom_room_name: section.custom_room_name,
             section_film_id: section.section_film_id,
             position: sIndex,
           }])
@@ -280,6 +286,8 @@ export default function QuoteBuilder() {
       {
         id: crypto.randomUUID(),
         name: `Section ${sections.length + 1}`,
+        room_id: null,
+        custom_room_name: null,
         section_film_id: null,
         windows: [],
       },
@@ -350,6 +358,45 @@ export default function QuoteBuilder() {
     }));
   };
 
+  const downloadPDF = async () => {
+    if (!id || id === "new") {
+      toast({
+        title: "Save first",
+        description: "Please save the quote before downloading PDF",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { data, error } = await supabase.functions.invoke('generate-pdf', {
+        body: { quoteId: id },
+      });
+
+      if (error) throw error;
+
+      // Create a blob from the HTML response and open in new window
+      const blob = new Blob([data], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+
+      toast({
+        title: "PDF generated",
+        description: "Opening PDF in new window",
+      });
+    } catch (error: any) {
+      toast({
+        title: "PDF generation failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Calculate quote totals
   const calculation = calculateQuote(
     {
@@ -383,10 +430,18 @@ export default function QuoteBuilder() {
             <p className="text-muted-foreground">Create a detailed quote for your customer</p>
           </div>
         </div>
-        <Button onClick={saveQuote} disabled={loading}>
-          <Save className="mr-2 h-4 w-4" />
-          Save Quote
-        </Button>
+        <div className="flex gap-2">
+          {id && id !== "new" && (
+            <Button onClick={downloadPDF} disabled={loading} variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Download PDF
+            </Button>
+          )}
+          <Button onClick={saveQuote} disabled={loading}>
+            <Save className="mr-2 h-4 w-4" />
+            Save Quote
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

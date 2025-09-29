@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      company_settings: {
+        Row: {
+          brand_color_hex: string | null
+          company_name: string
+          created_at: string | null
+          id: string
+          logo_url: string | null
+          pdf_footer_terms: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          brand_color_hex?: string | null
+          company_name?: string
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          pdf_footer_terms?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          brand_color_hex?: string | null
+          company_name?: string
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          pdf_footer_terms?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       films: {
         Row: {
           active: boolean | null
@@ -136,33 +166,63 @@ export type Database = {
           },
         ]
       }
+      rooms: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_common: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_common?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_common?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       sections: {
         Row: {
           created_at: string | null
+          custom_room_name: string | null
           id: string
           name: string
           position: number | null
           quote_id: string
+          room_id: string | null
           section_film_id: string | null
           section_notes: string | null
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
+          custom_room_name?: string | null
           id?: string
           name: string
           position?: number | null
           quote_id: string
+          room_id?: string | null
           section_film_id?: string | null
           section_notes?: string | null
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
+          custom_room_name?: string | null
           id?: string
           name?: string
           position?: number | null
           quote_id?: string
+          room_id?: string | null
           section_film_id?: string | null
           section_notes?: string | null
           updated_at?: string | null
@@ -173,6 +233,13 @@ export type Database = {
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sections_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
             referencedColumns: ["id"]
           },
           {

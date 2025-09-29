@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2 } from "lucide-react";
 import { SectionData, SectionCalculation, FilmData, WindowData } from "@/lib/quoteCalculations";
 import { formatCurrency, formatSqft } from "@/lib/quoteCalculations";
+import { RoomSelector } from "./RoomSelector";
 
 interface QuoteSectionProps {
   section: SectionData;
@@ -33,13 +34,21 @@ export function QuoteSection({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <Input
-              value={section.name}
-              onChange={(e) => onUpdateSection(section.id, { name: e.target.value })}
-              className="text-lg font-semibold"
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 space-y-2">
+            <Label>Room / Section</Label>
+            <RoomSelector
+              value={section.room_id}
+              onChange={(roomId) => onUpdateSection(section.id, { room_id: roomId })}
             />
+            {section.room_id && (
+              <Input
+                value={section.custom_room_name || ""}
+                onChange={(e) => onUpdateSection(section.id, { custom_room_name: e.target.value || null })}
+                placeholder="Custom name for this quote (optional)"
+                className="text-sm"
+              />
+            )}
           </div>
           <Button variant="ghost" size="icon" onClick={() => onDeleteSection(section.id)}>
             <Trash2 className="h-4 w-4" />

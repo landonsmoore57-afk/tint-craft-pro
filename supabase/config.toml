@@ -1,1 +1,4 @@
 project_id = "jiyeljjdpyawaikgpkqu"
+
+[functions.generate-pdf]
+verify_jwt = true
