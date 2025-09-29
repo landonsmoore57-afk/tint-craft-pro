@@ -457,12 +457,12 @@ export default function QuoteBuilder() {
             <CardContent className="space-y-4">
               <div>
                 <Label>Default Film (applies to all windows unless overridden)</Label>
-                <Select value={globalFilmId || ""} onValueChange={(v) => setGlobalFilmId(v || null)}>
+                <Select value={globalFilmId || "none"} onValueChange={(v) => setGlobalFilmId(v === "none" ? null : v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a film..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No default film</SelectItem>
+                    <SelectItem value="none">No default film</SelectItem>
                     {films.map((film) => (
                       <SelectItem key={film.id} value={film.id}>
                         {film.brand} {film.series} - {film.name} ({film.vlt}% VLT) - ${film.sell_per_sqft}/sqft

@@ -48,14 +48,14 @@ export function QuoteSection({
         <div className="mt-2">
           <Label>Section Film Override</Label>
           <Select
-            value={section.section_film_id || ""}
-            onValueChange={(v) => onUpdateSection(section.id, { section_film_id: v || null })}
+            value={section.section_film_id || "none"}
+            onValueChange={(v) => onUpdateSection(section.id, { section_film_id: v === "none" ? null : v })}
           >
             <SelectTrigger>
               <SelectValue placeholder="Use quote default..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Use quote default</SelectItem>
+              <SelectItem value="none">Use quote default</SelectItem>
               {films.map((film) => (
                 <SelectItem key={film.id} value={film.id}>
                   {film.brand} {film.series} - {film.name}
@@ -118,14 +118,14 @@ export function QuoteSection({
               <div>
                 <Label>Window Film Override</Label>
                 <Select
-                  value={window.window_film_id || ""}
-                  onValueChange={(v) => onUpdateWindow(section.id, window.id, { window_film_id: v || null })}
+                  value={window.window_film_id || "none"}
+                  onValueChange={(v) => onUpdateWindow(section.id, window.id, { window_film_id: v === "none" ? null : v })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Use section/quote default..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Use default</SelectItem>
+                    <SelectItem value="none">Use default</SelectItem>
                     {films.map((film) => (
                       <SelectItem key={film.id} value={film.id}>
                         {film.brand} {film.series} - {film.name}
