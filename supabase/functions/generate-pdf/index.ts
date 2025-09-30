@@ -23,6 +23,102 @@ interface MaterialData {
   active: boolean;
 }
 
+interface RollPlan {
+  slit_width_in: number;
+  base_roll_in: 48 | 60 | 72;
+  orientation: 'width-across' | 'height-across';
+  waste_in: number;
+  note?: string;
+}
+
+interface RollConfig {
+  roll_widths_in: number[];
+  allow_equal_splits: boolean;
+  trim_allowance_in: number;
+  allow_rotation: boolean;
+}
+
+const DEFAULT_ROLL_CONFIG: RollConfig = {
+  roll_widths_in: [48, 60, 72],
+  allow_equal_splits: true,
+  trim_allowance_in: 0.5,
+  allow_rotation: true,
+};
+
+function buildSlitCatalog(rolls: number[] = [48, 60, 72]): [number, number][] {
+  const map = new Map<number, number>();
+  for (const base of [...rolls].sort((a, b) => a - b)) {
+    for (let n = 1; n <= 6; n++) {
+      if (base % n === 0) {
+        const slit = base / n;
+        const curr = map.get(slit);
+        if (!curr || base < curr) map.set(slit, base);
+      }
+    }
+  }
+  return [...map.entries()].sort((a, b) => a[0] - b[0]);
+}
+
+function pickRollForSize(
+  W: number,
+  H: number,
+  cfg: RollConfig = DEFAULT_ROLL_CONFIG
+): RollPlan | { error: string } {
+  const trim = cfg.trim_allowance_in ?? 0;
+  const candidates = buildSlitCatalog(cfg.roll_widths_in ?? [48, 60, 72]);
+  const dims = [
+    { need: W + 2 * trim, orient: 'width-across' as const },
+    ...(cfg.allow_rotation ? [{ need: H + 2 * trim, orient: 'height-across' as const }] : []),
+  ];
+  
+  let best: RollPlan | null = null;
+  
+  for (const d of dims) {
+    for (const [slit, base] of candidates) {
+      if (slit + 1e-6 >= d.need) {
+        const waste = +(slit - d.need).toFixed(2);
+        const plan: RollPlan = {
+          slit_width_in: slit,
+          base_roll_in: base as 48 | 60 | 72,
+          orientation: d.orient,
+          waste_in: waste,
+        };
+        
+        if (slit !== base) {
+          plan.note = `${base}" roll → ${slit}" slit`;
+        }
+        
+        if (
+          !best ||
+          plan.waste_in < best.waste_in ||
+          (plan.waste_in === best.waste_in && plan.base_roll_in < best.base_roll_in) ||
+          (plan.waste_in === best.waste_in &&
+            plan.base_roll_in === best.base_roll_in &&
+            plan.orientation === 'width-across')
+        ) {
+          best = plan;
+        }
+        break;
+      }
+    }
+  }
+  
+  return best ?? { error: 'Oversize — no roll fits' };
+}
+
+function formatRollPlan(plan: RollPlan | { error: string } | undefined): string {
+  if (!plan) return 'N/A';
+  if ('error' in plan) return plan.error;
+  
+  const { slit_width_in, base_roll_in, orientation, waste_in, note } = plan;
+  
+  if (note) {
+    return `${note} (${orientation}, waste ${waste_in.toFixed(2)}")`;
+  } else {
+    return `${base_roll_in}" roll (exact fit, ${orientation})`;
+  }
+}
+
 // Color manipulation helpers
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -375,12 +471,14 @@ Deno.serve(async (req) => {
         sizeMap.set(key, item);
       }
     }
+    const rollConfig = DEFAULT_ROLL_CONFIG;
     const windowSizeRollup = [...sizeMap.values()]
       .map(i => ({
         width_in: i.w,
         height_in: i.h,
         total_qty: i.qty,
         area_sqft_each: +((i.w * i.h) / 144).toFixed(2),
+        roll_plan: pickRollForSize(i.w, i.h, rollConfig),
       }))
       .sort((a, b) => b.area_sqft_each - a.area_sqft_each || (a.width_in * a.height_in) - (b.width_in * b.height_in));
 
@@ -426,6 +524,7 @@ Deno.serve(async (req) => {
             height_in: i.h,
             area_sqft_each: +((i.w * i.h) / 144).toFixed(2),
             total_qty: i.qty,
+            roll_plan: pickRollForSize(i.w, i.h, rollConfig),
           }))
           .sort((a, b) =>
             b.area_sqft_each - a.area_sqft_each ||
@@ -1163,6 +1262,7 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
               <th style="padding: 12px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Size (W×H in)</th>
               <th style="padding: 12px; text-align: right; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Area (sq ft each)</th>
               <th style="padding: 12px; text-align: right; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Qty</th>
+              <th style="padding: 12px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Roll Size</th>
             </tr>
           </thead>
           <tbody>
@@ -1171,6 +1271,7 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
                 <td style="padding: 10px; font-family: monospace;">${item.width_in}×${item.height_in}</td>
                 <td style="padding: 10px; text-align: right; font-family: monospace;">${formatSqft(item.area_sqft_each)}</td>
                 <td style="padding: 10px; text-align: right; font-weight: 600;">${item.total_qty}</td>
+                <td style="padding: 10px; font-size: 12px;">${formatRollPlan(item.roll_plan)}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -1200,6 +1301,7 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
                   <th style="padding: 10px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Size (W×H in)</th>
                   <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Area (sq ft each)</th>
                   <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Qty</th>
+                  <th style="padding: 10px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Roll Size</th>
                 </tr>
               </thead>
               <tbody>
@@ -1208,6 +1310,7 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
                     <td style="padding: 8px 10px; font-family: monospace; font-size: 13px;">${size.width_in}×${size.height_in}</td>
                     <td style="padding: 8px 10px; text-align: right; font-family: monospace; font-size: 13px;">${formatSqft(size.area_sqft_each)}</td>
                     <td style="padding: 8px 10px; text-align: right; font-weight: 600; font-size: 13px;">${size.total_qty}</td>
+                    <td style="padding: 8px 10px; font-size: 11px;">${formatRollPlan(size.roll_plan)}</td>
                   </tr>
                 `).join('')}
               </tbody>

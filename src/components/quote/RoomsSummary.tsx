@@ -2,8 +2,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { RoomSizeRollup, formatSqft } from "@/lib/quoteCalculations";
+import { RoomSizeRollup, formatSqft, formatRollPlan } from "@/lib/quoteCalculations";
 import { DoorOpen } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface RoomsSummaryProps {
   rollup: RoomSizeRollup[];
@@ -52,7 +53,8 @@ export function RoomsSummary({ rollup }: RoomsSummaryProps) {
                     <TableRow className="bg-muted/30">
                       <TableHead className="pl-6">Size (W×H in)</TableHead>
                       <TableHead className="text-right">Area (sq ft each)</TableHead>
-                      <TableHead className="text-right pr-6">Qty</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="pr-6">Roll Size</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -60,7 +62,19 @@ export function RoomsSummary({ rollup }: RoomsSummaryProps) {
                       <TableRow key={sizeIdx}>
                         <TableCell className="font-mono pl-6">{size.width_in}×{size.height_in}</TableCell>
                         <TableCell className="text-right font-mono">{formatSqft(size.area_sqft_each)}</TableCell>
-                        <TableCell className="text-right font-semibold pr-6">{size.total_qty}</TableCell>
+                        <TableCell className="text-right font-semibold">{size.total_qty}</TableCell>
+                        <TableCell className="text-sm pr-6">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help">{formatRollPlan(size.roll_plan)}</span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">Calculated with trim allowance of 0.5" per side</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

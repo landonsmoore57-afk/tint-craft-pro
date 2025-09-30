@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { WindowSizeRollup, formatSqft } from "@/lib/quoteCalculations";
+import { WindowSizeRollup, formatSqft, formatRollPlan } from "@/lib/quoteCalculations";
 import { Maximize2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface WindowSummaryProps {
   rollup: WindowSizeRollup[];
@@ -27,6 +28,7 @@ export function WindowSummary({ rollup }: WindowSummaryProps) {
               <TableHead>Size (W×H in)</TableHead>
               <TableHead className="text-right">Area (sq ft each)</TableHead>
               <TableHead className="text-right">Qty</TableHead>
+              <TableHead>Roll Size</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -35,6 +37,18 @@ export function WindowSummary({ rollup }: WindowSummaryProps) {
                 <TableCell className="font-mono">{item.width_in}×{item.height_in}</TableCell>
                 <TableCell className="text-right font-mono">{formatSqft(item.area_sqft_each)}</TableCell>
                 <TableCell className="text-right font-semibold">{item.total_qty}</TableCell>
+                <TableCell className="text-sm">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help">{formatRollPlan(item.roll_plan)}</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Calculated with trim allowance of 0.5" per side</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

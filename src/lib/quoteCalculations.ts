@@ -82,11 +82,20 @@ export interface QuoteSummary {
   deposit_due: number;
 }
 
+export interface RollPlan {
+  slit_width_in: number;
+  base_roll_in: 48 | 60 | 72;
+  orientation: 'width-across' | 'height-across';
+  waste_in: number;
+  note?: string;
+}
+
 export interface WindowSizeRollup {
   width_in: number;
   height_in: number;
   total_qty: number;
   area_sqft_each: number;
+  roll_plan?: RollPlan | { error: string };
 }
 
 export interface RoomSize {
@@ -94,6 +103,7 @@ export interface RoomSize {
   height_in: number;
   area_sqft_each: number;
   total_qty: number;
+  roll_plan?: RollPlan | { error: string };
 }
 
 export interface RoomSizeRollup {
@@ -122,7 +132,8 @@ export function calculateQuote(
   films: FilmData[],
   materials: MaterialData[],
   rooms: RoomData[] = [],
-  deposit_percent: number = 0
+  deposit_percent: number = 0,
+  rollConfig: RollConfig = DEFAULT_ROLL_CONFIG
 ): QuoteCalculationResult {
   const validation_errors: string[] = [];
   const filmMap = new Map(films.map(f => [f.id, f]));
@@ -307,6 +318,7 @@ export function calculateQuote(
       height_in: i.h,
       total_qty: i.qty,
       area_sqft_each: +((i.w * i.h) / 144).toFixed(2),
+      roll_plan: pickRollForSize(i.w, i.h, rollConfig),
     }))
     .sort((a, b) => b.area_sqft_each - a.area_sqft_each || (a.width_in * a.height_in) - (b.width_in * b.height_in));
 
@@ -350,6 +362,7 @@ export function calculateQuote(
           height_in: i.h,
           area_sqft_each: +((i.w * i.h) / 144).toFixed(2),
           total_qty: i.qty,
+          roll_plan: pickRollForSize(i.w, i.h, rollConfig),
         }))
         .sort((a, b) =>
           b.area_sqft_each - a.area_sqft_each ||
@@ -388,4 +401,96 @@ export function formatCurrency(amount: number): string {
 
 export function formatSqft(sqft: number): string {
   return sqft.toFixed(2);
+}
+
+// Roll size calculation helpers
+export interface RollConfig {
+  roll_widths_in: number[];
+  allow_equal_splits: boolean;
+  trim_allowance_in: number;
+  allow_rotation: boolean;
+}
+
+const DEFAULT_ROLL_CONFIG: RollConfig = {
+  roll_widths_in: [48, 60, 72],
+  allow_equal_splits: true,
+  trim_allowance_in: 0.5,
+  allow_rotation: true,
+};
+
+function buildSlitCatalog(rolls: number[] = [48, 60, 72]): [number, number][] {
+  const map = new Map<number, number>(); // slit_width -> smallest base
+  for (const base of [...rolls].sort((a, b) => a - b)) {
+    for (let n = 1; n <= 6; n++) {
+      if (base % n === 0) {
+        const slit = base / n;
+        const curr = map.get(slit);
+        if (!curr || base < curr) map.set(slit, base);
+      }
+    }
+  }
+  return [...map.entries()].sort((a, b) => a[0] - b[0]);
+}
+
+export function pickRollForSize(
+  W: number,
+  H: number,
+  cfg: RollConfig = DEFAULT_ROLL_CONFIG
+): RollPlan | { error: string } {
+  const trim = cfg.trim_allowance_in ?? 0;
+  const candidates = buildSlitCatalog(cfg.roll_widths_in ?? [48, 60, 72]);
+  const dims = [
+    { need: W + 2 * trim, orient: 'width-across' as const },
+    ...(cfg.allow_rotation ? [{ need: H + 2 * trim, orient: 'height-across' as const }] : []),
+  ];
+  
+  let best: RollPlan | null = null;
+  
+  for (const d of dims) {
+    for (const [slit, base] of candidates) {
+      if (slit + 1e-6 >= d.need) {
+        const waste = +(slit - d.need).toFixed(2);
+        const plan: RollPlan = {
+          slit_width_in: slit,
+          base_roll_in: base as 48 | 60 | 72,
+          orientation: d.orient,
+          waste_in: waste,
+        };
+        
+        // Generate note if slit is used
+        if (slit !== base) {
+          plan.note = `${base}" roll → ${slit}" slit`;
+        }
+        
+        if (
+          !best ||
+          plan.waste_in < best.waste_in ||
+          (plan.waste_in === best.waste_in && plan.base_roll_in < best.base_roll_in) ||
+          (plan.waste_in === best.waste_in &&
+            plan.base_roll_in === best.base_roll_in &&
+            plan.orientation === 'width-across')
+        ) {
+          best = plan;
+        }
+        break; // next orientation
+      }
+    }
+  }
+  
+  return best ?? { error: 'Oversize — no roll fits' };
+}
+
+export function formatRollPlan(plan: RollPlan | { error: string } | undefined): string {
+  if (!plan) return 'N/A';
+  if ('error' in plan) return plan.error;
+  
+  const { slit_width_in, base_roll_in, orientation, waste_in, note } = plan;
+  
+  if (note) {
+    // Slit used
+    return `${note} (${orientation}, waste ${waste_in.toFixed(2)}")`;
+  } else {
+    // Exact fit
+    return `${base_roll_in}" roll (exact fit, ${orientation})`;
+  }
 }

@@ -22,6 +22,7 @@ export type Database = {
           id: string
           logo_url: string | null
           pdf_footer_terms: string | null
+          roll_config: Json | null
           tagline: string | null
           theme_style: string | null
           updated_at: string | null
@@ -33,6 +34,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           pdf_footer_terms?: string | null
+          roll_config?: Json | null
           tagline?: string | null
           theme_style?: string | null
           updated_at?: string | null
@@ -44,6 +46,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           pdf_footer_terms?: string | null
+          roll_config?: Json | null
           tagline?: string | null
           theme_style?: string | null
           updated_at?: string | null
