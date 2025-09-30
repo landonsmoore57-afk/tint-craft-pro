@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Upload } from "lucide-react";
+import { Save, Upload, X } from "lucide-react";
+import { FilmSelector } from "@/components/quote/FilmSelector";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -19,6 +20,7 @@ export default function Settings() {
   const [themeStyle, setThemeStyle] = useState("Modern");
   const [tagline, setTagline] = useState("");
   const [settingsId, setSettingsId] = useState<string | null>(null);
+  const [defaultFilmId, setDefaultFilmId] = useState<string | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -42,6 +44,7 @@ export default function Settings() {
         setPdfFooterTerms(data.pdf_footer_terms || "");
         setThemeStyle(data.theme_style || "Modern");
         setTagline(data.tagline || "");
+        setDefaultFilmId(data.default_film_id || null);
       }
     } catch (error: any) {
       toast({
@@ -127,6 +130,7 @@ export default function Settings() {
         pdf_footer_terms: pdfFooterTerms || null,
         theme_style: themeStyle,
         tagline: tagline || null,
+        default_film_id: defaultFilmId,
       };
 
       if (settingsId) {
@@ -231,6 +235,45 @@ export default function Settings() {
             <Label>PDF Footer Terms</Label>
             <Textarea value={pdfFooterTerms} onChange={(e) => setPdfFooterTerms(e.target.value)} rows={4} placeholder="Enter terms and conditions to appear at the bottom of quotes..." />
             <p className="text-sm text-muted-foreground mt-1">Payment terms, warranty info, and legal text for PDF footer</p>
+          </div>
+
+          <Button onClick={saveSettings} disabled={loading}>
+            <Save className="mr-2 h-4 w-4" />
+            Save Settings
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Quote Defaults</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Default Film for New Quotes</Label>
+            <div className="flex gap-2 mt-2">
+              <div className="flex-1">
+                <FilmSelector 
+                  value={defaultFilmId} 
+                  onChange={setDefaultFilmId}
+                  placeholder="Select default film..."
+                />
+              </div>
+              {defaultFilmId && (
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => setDefaultFilmId(null)}
+                  title="Clear default film"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              This film will be automatically applied as the Global Film for all new quotes
+            </p>
           </div>
 
           <Button onClick={saveSettings} disabled={loading}>

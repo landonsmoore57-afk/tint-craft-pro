@@ -19,6 +19,7 @@ export type Database = {
           brand_color_hex: string | null
           company_name: string
           created_at: string | null
+          default_film_id: string | null
           id: string
           logo_url: string | null
           pdf_footer_terms: string | null
@@ -31,6 +32,7 @@ export type Database = {
           brand_color_hex?: string | null
           company_name?: string
           created_at?: string | null
+          default_film_id?: string | null
           id?: string
           logo_url?: string | null
           pdf_footer_terms?: string | null
@@ -43,6 +45,7 @@ export type Database = {
           brand_color_hex?: string | null
           company_name?: string
           created_at?: string | null
+          default_film_id?: string | null
           id?: string
           logo_url?: string | null
           pdf_footer_terms?: string | null
@@ -51,7 +54,22 @@ export type Database = {
           theme_style?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "company_settings_default_film_id_fkey"
+            columns: ["default_film_id"]
+            isOneToOne: false
+            referencedRelation: "film_usage_ranking"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_settings_default_film_id_fkey"
+            columns: ["default_film_id"]
+            isOneToOne: false
+            referencedRelation: "films"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       films: {
         Row: {
@@ -247,6 +265,13 @@ export type Database = {
             foreignKeyName: "quotes_global_film_id_fkey"
             columns: ["global_film_id"]
             isOneToOne: false
+            referencedRelation: "film_usage_ranking"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_global_film_id_fkey"
+            columns: ["global_film_id"]
+            isOneToOne: false
             referencedRelation: "films"
             referencedColumns: ["id"]
           },
@@ -325,7 +350,21 @@ export type Database = {
             foreignKeyName: "sections_room_id_fkey"
             columns: ["room_id"]
             isOneToOne: false
+            referencedRelation: "room_usage_ranking"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sections_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
             referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sections_section_film_id_fkey"
+            columns: ["section_film_id"]
+            isOneToOne: false
+            referencedRelation: "film_usage_ranking"
             referencedColumns: ["id"]
           },
           {
@@ -395,6 +434,13 @@ export type Database = {
             foreignKeyName: "windows_window_film_id_fkey"
             columns: ["window_film_id"]
             isOneToOne: false
+            referencedRelation: "film_usage_ranking"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "windows_window_film_id_fkey"
+            columns: ["window_film_id"]
+            isOneToOne: false
             referencedRelation: "films"
             referencedColumns: ["id"]
           },
@@ -402,7 +448,35 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      film_usage_ranking: {
+        Row: {
+          active: boolean | null
+          brand: string | null
+          cost_per_sqft: number | null
+          global_usage: number | null
+          id: string | null
+          name: string | null
+          notes: string | null
+          section_usage: number | null
+          security_film: boolean | null
+          sell_per_sqft: number | null
+          series: string | null
+          sku: string | null
+          usage_score: number | null
+          vlt: number | null
+          window_usage: number | null
+        }
+        Relationships: []
+      }
+      room_usage_ranking: {
+        Row: {
+          id: string | null
+          is_common: boolean | null
+          name: string | null
+          usage_score: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never

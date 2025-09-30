@@ -8,6 +8,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { SectionData, SectionCalculation, FilmData, WindowData } from "@/lib/quoteCalculations";
 import { formatCurrency, formatSqft } from "@/lib/quoteCalculations";
 import { RoomSelector } from "./RoomSelector";
+import { FilmSelector } from "./FilmSelector";
 import { supabase } from "@/integrations/supabase/client";
 
 interface QuoteSectionProps {
@@ -101,25 +102,11 @@ export function QuoteSection({
         </div>
         <div className="pt-2">
           <Label className="text-sm font-medium text-muted-foreground">Film Override for Section</Label>
-          <Select
-            value={section.section_film_id || "none"}
-            onValueChange={(v) => onUpdateSection(section.id, { section_film_id: v === "none" ? null : v })}
-          >
-            <SelectTrigger className="bg-background">
-              <SelectValue placeholder="Use quote default film..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Use quote default</SelectItem>
-              {films.map((film) => (
-                <SelectItem key={film.id} value={film.id}>
-                  <div className="flex flex-col">
-                    <span className="font-medium">{film.brand} {film.series} - {film.name}</span>
-                    <span className="text-xs text-muted-foreground">{film.vlt}% VLT • ${film.sell_per_sqft}/sqft</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <FilmSelector
+            value={section.section_film_id}
+            onChange={(filmId) => onUpdateSection(section.id, { section_film_id: filmId })}
+            placeholder="Use quote default film..."
+          />
         </div>
       </CardHeader>
       <CardContent className="space-y-4 p-6">
@@ -222,25 +209,11 @@ export function QuoteSection({
               
               <div className="space-y-1">
                 <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Film Override</Label>
-                <Select
-                  value={window.window_film_id || "none"}
-                  onValueChange={(v) => onUpdateWindow(section.id, window.id, { window_film_id: v === "none" ? null : v })}
-                >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Use section/quote default..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Use default</SelectItem>
-                    {films.map((film) => (
-                      <SelectItem key={film.id} value={film.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{film.brand} {film.series} - {film.name}</span>
-                          <span className="text-xs text-muted-foreground">{film.vlt}% VLT • ${film.sell_per_sqft}/sqft</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FilmSelector
+                  value={window.window_film_id}
+                  onChange={(filmId) => onUpdateWindow(section.id, window.id, { window_film_id: filmId })}
+                  placeholder="Use section/quote default..."
+                />
               </div>
               
               {calc && (

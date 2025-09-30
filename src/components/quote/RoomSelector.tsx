@@ -34,27 +34,73 @@ export function RoomSelector({ value, onChange }: RoomSelectorProps) {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    loadRooms();
-  }, []);
-
-  const loadRooms = async () => {
+  // Load top 10 suggestions when opened
+  const loadSuggestions = async () => {
     try {
-      const { data, error } = await supabase
-        .from("rooms")
-        .select("id, name")
-        .order("name");
+      setLoading(true);
+      const { data, error } = await supabase.functions.invoke('rooms-suggest', {
+        body: { limit: 10 }
+      });
 
       if (error) throw error;
       setRooms(data || []);
     } catch (error: any) {
+      console.error('Error loading room suggestions:', error);
       toast({
         title: "Error loading rooms",
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Search rooms when user types
+  const searchRooms = async (query: string) => {
+    if (!query) {
+      // If search is cleared, reload suggestions
+      await loadSuggestions();
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.functions.invoke('rooms-search', {
+        body: { q: query, limit: 20 }
+      });
+
+      if (error) throw error;
+      setRooms(data || []);
+    } catch (error: any) {
+      console.error('Error searching rooms:', error);
+      toast({
+        title: "Error searching rooms",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (search) {
+        searchRooms(search);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Load suggestions when opened
+  useEffect(() => {
+    if (open && !search) {
+      loadSuggestions();
+    }
+  }, [open, search]);
 
   const createRoom = async (name: string) => {
     try {
@@ -96,13 +142,8 @@ export function RoomSelector({ value, onChange }: RoomSelectorProps) {
   };
 
   const selectedRoom = rooms.find((room) => room.id === value);
-  const filteredRooms = search
-    ? rooms.filter((room) =>
-        room.name.toLowerCase().includes(search.toLowerCase())
-      )
-    : rooms;
-
-  const showCreateOption = search && !filteredRooms.some(
+  
+  const showCreateOption = search && !rooms.some(
     (room) => room.name.toLowerCase() === search.toLowerCase()
   );
 
@@ -120,14 +161,16 @@ export function RoomSelector({ value, onChange }: RoomSelectorProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
-        <Command>
+        <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Search rooms..."
+            placeholder="Type to search rooms..."
             value={search}
             onValueChange={setSearch}
           />
           <CommandEmpty>
-            {showCreateOption ? (
+            {loading ? (
+              "Loading..."
+            ) : showCreateOption ? (
               <Button
                 variant="ghost"
                 className="w-full justify-start"
@@ -136,15 +179,17 @@ export function RoomSelector({ value, onChange }: RoomSelectorProps) {
               >
                 Create "{search}"
               </Button>
+            ) : search ? (
+              "No room found. Keep typing..."
             ) : (
-              "No room found."
+              "Type to search rooms..."
             )}
           </CommandEmpty>
           <CommandGroup>
-            {filteredRooms.map((room) => (
+            {rooms.map((room) => (
               <CommandItem
                 key={room.id}
-                value={room.name}
+                value={room.id}
                 onSelect={() => {
                   onChange(room.id === value ? null : room.id);
                   setOpen(false);

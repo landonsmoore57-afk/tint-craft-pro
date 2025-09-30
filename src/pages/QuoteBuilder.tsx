@@ -7,15 +7,17 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Save, ArrowLeft, Download } from "lucide-react";
+import { Plus, Save, ArrowLeft, Download, X, Info } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { QuoteSection } from "@/components/quote/QuoteSection";
 import { QuoteSummariesPanel } from "@/components/quote/QuoteSummariesPanel";
 import { WindowSummary } from "@/components/quote/WindowSummary";
 import { RoomsSummary } from "@/components/quote/RoomsSummary";
 import { calculateQuote, FilmData, MaterialData, RoomData, SectionData, WindowData, formatCurrency } from "@/lib/quoteCalculations";
 import { format } from "date-fns";
+import { FilmSelector } from "@/components/quote/FilmSelector";
 
 export default function QuoteBuilder() {
   const { id } = useParams();
@@ -56,14 +58,50 @@ export default function QuoteBuilder() {
     },
   ]);
 
+  // Default film banner
+  const [showDefaultFilmBanner, setShowDefaultFilmBanner] = useState(false);
+  const [defaultFilmName, setDefaultFilmName] = useState("");
+
   useEffect(() => {
-    fetchFilms();
-    fetchMaterials();
-    fetchRooms();
-    if (id && id !== "new") {
-      loadQuote(id);
-    }
+    const initializeQuote = async () => {
+      await fetchFilms();
+      await fetchMaterials();
+      await fetchRooms();
+      
+      if (id && id !== "new") {
+        loadQuote(id);
+      } else if (id === "new") {
+        // Load default film for new quotes
+        await loadDefaultFilm();
+      }
+    };
+    
+    initializeQuote();
   }, [id]);
+
+  const loadDefaultFilm = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("company_settings")
+        .select("default_film_id, films:default_film_id(id, brand, series, name, vlt, active)")
+        .limit(1)
+        .single();
+
+      if (error && error.code !== "PGRST116") throw error;
+
+      if (data?.default_film_id && data.films) {
+        const film = data.films as any;
+        if (film.active) {
+          setGlobalFilmId(data.default_film_id);
+          setDefaultFilmName(`${film.brand} ${film.series} ${film.name}${film.vlt ? ` ${film.vlt}` : ''}`);
+          setShowDefaultFilmBanner(true);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error loading default film:', error);
+      // Don't show error toast for missing default film - it's optional
+    }
+  };
 
   const fetchFilms = async () => {
     try {
@@ -493,6 +531,26 @@ export default function QuoteBuilder() {
         </div>
       </div>
 
+      {/* Default Film Banner */}
+      {showDefaultFilmBanner && (
+        <Alert className="border-primary/20 bg-primary/5">
+          <Info className="h-4 w-4 text-primary" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              Default film applied: <strong>{defaultFilmName}</strong>. You can change this in Quote Settings below.
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDefaultFilmBanner(false)}
+              className="h-auto p-1"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Customer Info */}
@@ -580,17 +638,11 @@ export default function QuoteBuilder() {
             <CardContent className="space-y-4">
               <div>
                 <Label>Default Film (applies to all windows unless overridden)</Label>
-                <Select value={globalFilmId || "none"} onValueChange={(v) => setGlobalFilmId(v === "none" ? null : v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a film..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No default film</SelectItem>
-                    {films.map((film) => (
-                      <SelectItem key={film.id} value={film.id}>
-                        {film.brand} {film.series} - {film.name} ({film.vlt}% VLT) - ${film.sell_per_sqft}/sqft
-                      </SelectItem>
-                    ))}
+                <FilmSelector
+                  value={globalFilmId}
+                  onChange={setGlobalFilmId}
+                  placeholder="Select a film..."
+                />
                   </SelectContent>
                 </Select>
               </div>
