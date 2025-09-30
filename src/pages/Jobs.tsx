@@ -215,23 +215,26 @@ export default function Jobs() {
             <div className="space-y-8">
               {jobs.map((group) => (
                 <div key={group.job_date} id={`date-${group.job_date}`} className="space-y-4">
-                  <div className="flex items-center gap-3 pb-3 border-b">
-                    <h3 className="text-lg font-semibold">
-                      {format(new Date(group.job_date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')}
-                    </h3>
-                    <Badge variant="outline">{group.items.length} job{group.items.length !== 1 ? 's' : ''}</Badge>
+                  <div className="flex items-center gap-4 pb-4 mb-2 border-b-2 border-primary/20">
+                    <div className="flex items-center gap-3 px-4 py-2 bg-primary/10 rounded-lg">
+                      <CalendarIcon className="h-5 w-5 text-primary" />
+                      <h3 className="text-xl font-bold text-primary">
+                        {format(new Date(group.job_date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')}
+                      </h3>
+                    </div>
+                    <Badge variant="secondary" className="text-sm px-3 py-1">
+                      {group.items.length} job{group.items.length !== 1 ? 's' : ''}
+                    </Badge>
                   </div>
 
                   <div className="space-y-4">
                     {group.items.map((job) => (
-                      <Card key={job.assignment_id} className="overflow-hidden">
-                        <CardHeader className="bg-muted/50">
+                      <Card key={job.assignment_id} className="overflow-hidden border-l-4 border-l-primary/30">
+                        <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent">
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-3 mb-1">
-                                <CardTitle className="text-base">
-                                  {job.customer_name}
-                                </CardTitle>
+                              <div className="flex items-center gap-3 mb-1 flex-wrap">
+                                <CardTitle className="text-lg">{job.customer_name}</CardTitle>
                                 <Badge variant="outline" className="font-mono">
                                   #{job.quote_no}
                                 </Badge>
@@ -284,16 +287,21 @@ export default function Jobs() {
                         <CardContent className="pt-6">
                           {/* Window Summary */}
                           <div className="mb-6">
-                            <h4 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
-                              Window Summary
-                            </h4>
-                            <div className="rounded-md border">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                                Window Summary
+                              </h4>
+                              <Badge variant="outline" className="bg-accent/10 border-accent/30">
+                                Total: {job.window_summary.reduce((sum, w) => sum + w.total_qty, 0)} windows
+                              </Badge>
+                            </div>
+                            <div className="rounded-lg border border-accent/20 overflow-hidden">
                               <Table>
                                 <TableHeader>
-                                  <TableRow>
-                                    <TableHead>Size (W×H in)</TableHead>
-                                    <TableHead className="text-right">Area (sq ft)</TableHead>
-                                    <TableHead className="text-right">Qty</TableHead>
+                                  <TableRow className="bg-accent/5 hover:bg-accent/5">
+                                    <TableHead className="font-semibold">Size (W×H in)</TableHead>
+                                    <TableHead className="text-right font-semibold">Area (sq ft)</TableHead>
+                                    <TableHead className="text-right font-semibold">Qty</TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -329,24 +337,28 @@ export default function Jobs() {
                               <h4 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
                                 Rooms Summary
                               </h4>
-                              <Accordion type="single" collapsible className="w-full">
+                              <Accordion type="single" collapsible className="w-full space-y-2">
                                 {job.rooms_summary.map((room, idx) => (
-                                  <AccordionItem key={idx} value={`room-${idx}`} className="border rounded-md mb-2">
-                                    <AccordionTrigger className="px-4 hover:no-underline hover:bg-muted/50">
+                                  <AccordionItem 
+                                    key={idx} 
+                                    value={`room-${idx}`} 
+                                    className="border border-primary/20 rounded-lg overflow-hidden bg-gradient-to-r from-primary/5 to-transparent"
+                                  >
+                                    <AccordionTrigger className="px-4 hover:no-underline hover:bg-primary/10">
                                       <div className="flex items-center gap-3">
-                                        <span className="font-medium">{room.room_label}</span>
-                                        <Badge variant="secondary" className="text-xs">
+                                        <span className="font-semibold">{room.room_label}</span>
+                                        <Badge variant="secondary" className="text-xs bg-primary/20">
                                           {room.total_windows_qty} windows
                                         </Badge>
                                       </div>
                                     </AccordionTrigger>
-                                    <AccordionContent className="px-4 pb-4">
+                                    <AccordionContent className="px-4 pb-4 bg-card">
                                       <Table>
                                         <TableHeader>
-                                          <TableRow>
-                                            <TableHead>Size (W×H in)</TableHead>
-                                            <TableHead className="text-right">Area (sq ft)</TableHead>
-                                            <TableHead className="text-right">Qty</TableHead>
+                                          <TableRow className="bg-muted/30 hover:bg-muted/30">
+                                            <TableHead className="font-semibold">Size (W×H in)</TableHead>
+                                            <TableHead className="text-right font-semibold">Area (sq ft)</TableHead>
+                                            <TableHead className="text-right font-semibold">Qty</TableHead>
                                           </TableRow>
                                         </TableHeader>
                                         <TableBody>
