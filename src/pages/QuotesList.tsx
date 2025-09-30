@@ -8,9 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Eye, Search, Download, X } from "lucide-react";
+import { Plus, Eye, Search, Download, X, Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import html2pdf from "html2pdf.js";
+import { AssignToJobsDialog } from "@/components/jobs/AssignToJobsDialog";
 
 interface Quote {
   id: string;
@@ -32,6 +33,7 @@ export default function QuotesList() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "done">("all");
   const [exporting, setExporting] = useState(false);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -178,6 +180,13 @@ export default function QuotesList() {
             <CardContent className="flex items-center gap-4 p-4">
               <span className="font-semibold">{selectedIds.size} selected</span>
               <Button
+                onClick={() => setAssignDialogOpen(true)}
+                variant="secondary"
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                Assign to Jobs
+              </Button>
+              <Button
                 onClick={handleBatchExport}
                 disabled={exporting}
                 variant="default"
@@ -196,6 +205,16 @@ export default function QuotesList() {
           </Card>
         </div>
       )}
+
+      <AssignToJobsDialog
+        open={assignDialogOpen}
+        onOpenChange={setAssignDialogOpen}
+        quoteIds={Array.from(selectedIds)}
+        onSuccess={() => {
+          setSelectedIds(new Set());
+          fetchQuotes();
+        }}
+      />
 
       <Card>
         <CardHeader>

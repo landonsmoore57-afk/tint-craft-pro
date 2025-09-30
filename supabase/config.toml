@@ -2,3 +2,9 @@ project_id = "jiyeljjdpyawaikgpkqu"
 
 [functions.generate-pdf]
 verify_jwt = true
+
+[functions.batch-window-summary]
+verify_jwt = true
+
+[functions.list-jobs]
+verify_jwt = true
