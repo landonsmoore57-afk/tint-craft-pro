@@ -193,8 +193,8 @@ export default function QuoteBuilder() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const quoteData = {
-        quote_number: id && id !== "new" ? undefined : `Q-${Date.now()}`, // Legacy field, quote_no is auto-generated
+      // Base quote data (excluding quote_no which is immutable and auto-generated)
+      const quoteData: any = {
         customer_name: customerName,
         customer_email: customerEmail || null,
         customer_phone: customerPhone || null,
@@ -209,8 +209,13 @@ export default function QuoteBuilder() {
         travel_taxable: travelTaxable,
         notes_internal: notesInternal || null,
         notes_customer: notesCustomer || null,
-        created_by: user.id,
       };
+
+      // Only set created_by and quote_number for new quotes
+      if (!id || id === "new") {
+        quoteData.created_by = user.id;
+        quoteData.quote_number = `Q-${Date.now()}`; // Legacy field
+      }
 
       let quoteId = id;
 

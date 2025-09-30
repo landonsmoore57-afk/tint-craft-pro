@@ -192,8 +192,19 @@ export function QuoteSection({
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quantity</Label>
                   <Input
                     type="number"
+                    inputMode="numeric"
+                    min="1"
+                    step="1"
                     value={window.quantity}
-                    onChange={(e) => onUpdateWindow(section.id, window.id, { quantity: parseInt(e.target.value) || 1 })}
+                    onFocus={(e) => {
+                      requestAnimationFrame(() => e.target.select());
+                    }}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "") return; // Allow empty during typing
+                      const newVal = Math.max(1, parseInt(val) || 1);
+                      onUpdateWindow(section.id, window.id, { quantity: newVal });
+                    }}
                     className="bg-background text-center font-mono"
                   />
                 </div>
