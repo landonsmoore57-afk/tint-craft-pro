@@ -200,36 +200,11 @@ Deno.serve(async (req) => {
     // Generate PDF HTML
     const html = generateBatchPDFHTML(quotesWithRollup);
 
-    // Generate PDF using Puppeteer or similar (placeholder for actual PDF generation)
-    const pdfResponse = await fetch('https://api.html2pdf.app/v1/generate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        html,
-        options: {
-          format: 'Letter',
-          margin: { top: '0.5in', right: '0.5in', bottom: '0.5in', left: '0.5in' },
-        },
-      }),
-    });
-
-    if (!pdfResponse.ok) {
-      console.error('PDF generation failed');
-      // Return HTML for debugging if PDF generation fails
-      return new Response(html, {
-        headers: { ...corsHeaders, 'Content-Type': 'text/html' },
-      });
-    }
-
-    const pdfBlob = await pdfResponse.blob();
-
-    return new Response(pdfBlob, {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="window-summary-batch-${Date.now()}.pdf"`,
+    // Return HTML for browser print dialog (same approach as single quote PDF)
+    return new Response(html, {
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'text/html',
       },
     });
 

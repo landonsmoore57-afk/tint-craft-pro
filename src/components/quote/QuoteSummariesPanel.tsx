@@ -21,7 +21,7 @@ export function QuoteSummariesPanel({
   onDownloadPDF
 }: QuoteSummariesPanelProps) {
   return (
-    <div className="sticky top-6 space-y-4">
+    <div className="space-y-4">
       {validationErrors.length > 0 && (
         <Alert variant="destructive" className="border-destructive/20 bg-destructive/5">
           <AlertCircle className="h-4 w-4" />

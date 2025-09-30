@@ -116,37 +116,29 @@ export default function QuotesList() {
   const handleBatchExport = async () => {
     setExporting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/batch-window-summary`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({ ids: Array.from(selectedIds) }),
-        }
-      );
+      const { data, error } = await supabase.functions.invoke('batch-window-summary', {
+        body: { ids: Array.from(selectedIds) },
+      });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate batch export');
+      if (error) throw error;
+
+      // Open HTML in new window for printing (same as single quote PDF)
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(data);
+        printWindow.document.close();
+        
+        // Trigger print dialog after content loads
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print();
+          }, 250);
+        };
       }
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `window-summary-batch-${Date.now()}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
       toast({
-        title: "Export successful",
-        description: `Generated window summary for ${selectedIds.size} quotes`,
+        title: "Export ready",
+        description: `Window summary for ${selectedIds.size} quotes - save as PDF from print dialog`,
       });
 
       setSelectedIds(new Set());
