@@ -533,8 +533,8 @@ export default function QuoteBuilder() {
           ))}
 
           <Button onClick={addSection} variant="outline" className="w-full">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Section / Room
+          <Plus className="mr-2 h-4 w-4" />
+          Add Room
           </Button>
 
           {/* Quote Settings */}

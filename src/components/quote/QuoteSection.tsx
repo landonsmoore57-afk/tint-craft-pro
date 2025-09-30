@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +8,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { SectionData, SectionCalculation, FilmData, WindowData } from "@/lib/quoteCalculations";
 import { formatCurrency, formatSqft } from "@/lib/quoteCalculations";
 import { RoomSelector } from "./RoomSelector";
+import { supabase } from "@/integrations/supabase/client";
 
 interface QuoteSectionProps {
   section: SectionData;
@@ -31,6 +33,35 @@ export function QuoteSection({
   onUpdateWindow,
   onDeleteWindow,
 }: QuoteSectionProps) {
+  const [roomName, setRoomName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchRoomName = async () => {
+      if (!section.room_id) {
+        setRoomName(null);
+        return;
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from("rooms")
+          .select("name")
+          .eq("id", section.room_id)
+          .single();
+        
+        if (error) throw error;
+        setRoomName(data?.name || null);
+      } catch (error) {
+        console.error("Error fetching room name:", error);
+        setRoomName(null);
+      }
+    };
+
+    fetchRoomName();
+  }, [section.room_id]);
+
+  const displayTitle = section.custom_room_name || roomName || `Section ${sectionIndex + 1}`;
+
   return (
     <Card className="bg-quote-section border-quote-section-border shadow-sm hover:shadow-md transition-shadow">
       <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5 border-b border-quote-section-border">
@@ -38,7 +69,7 @@ export function QuoteSection({
           <div className="flex-1 space-y-3">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-primary"></div>
-              <Label className="text-base font-semibold text-foreground">Section {sectionIndex + 1}</Label>
+              <Label className="text-base font-semibold text-foreground">{displayTitle}</Label>
             </div>
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Room / Area</Label>
