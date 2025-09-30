@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { quoteId } = await req.json();
+    const { quoteId, summary } = await req.json();
 
     if (!quoteId) {
       return new Response(
@@ -312,38 +312,78 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Calculate materials
-    const materialsOption = quote.materials_option || 'N/A';
-    let materialsTotal = 0;
-    let materialsUnitPrice = 0;
+    // Build summaries (same logic as client-side)
+    const gasket = materials?.find((m: MaterialData) => m.key === 'gasket');
+    const caulk = materials?.find((m: MaterialData) => m.key === 'caulk');
 
-    if (materialsOption !== 'N/A' && totalLinearFeetSecurity > 0 && materials) {
-      const gasket = materials.find((m: MaterialData) => m.key === 'gasket');
-      const caulk = materials.find((m: MaterialData) => m.key === 'caulk');
+    const calculateSummary = (
+      key: string,
+      label: string,
+      materialsUnitPrice: number
+    ) => {
+      const materialsTotal = totalLinearFeetSecurity * materialsUnitPrice;
+      const subtotal = windowsSubtotal + materialsTotal;
+      const discountFlatAmount = Math.min(quote.discount_flat || 0, subtotal);
+      const subtotalAfterFlat = subtotal - discountFlatAmount;
+      const discountPercentAmount = subtotalAfterFlat * ((quote.discount_percent || 0) / 100);
+      const subtotalAfterDiscounts = subtotalAfterFlat - discountPercentAmount;
+      const travelFee = quote.travel_fee || 0;
+      const taxableBase = quote.travel_taxable ? subtotalAfterDiscounts + travelFee : subtotalAfterDiscounts;
+      const taxAmount = taxableBase * ((quote.tax_percent || 0) / 100);
+      const grandTotal = subtotalAfterDiscounts + travelFee + taxAmount;
+      const depositDue = grandTotal * ((quote.deposit_percent || 0) / 100);
+      const totalSavings = discountFlatAmount + discountPercentAmount;
 
-      if (materialsOption === 'Gasket' && gasket) {
-        materialsUnitPrice = gasket.sell_per_linear_ft;
-        materialsTotal = totalLinearFeetSecurity * gasket.sell_per_linear_ft;
-      } else if (materialsOption === 'Caulk' && caulk) {
-        materialsUnitPrice = caulk.sell_per_linear_ft;
-        materialsTotal = totalLinearFeetSecurity * caulk.sell_per_linear_ft;
-      } else if (materialsOption === 'Both' && gasket && caulk) {
-        materialsUnitPrice = gasket.sell_per_linear_ft + caulk.sell_per_linear_ft;
-        materialsTotal = totalLinearFeetSecurity * (gasket.sell_per_linear_ft + caulk.sell_per_linear_ft);
+      return {
+        key,
+        label,
+        subtotal,
+        materials_total: materialsTotal,
+        materials_unit_price: materialsUnitPrice,
+        discount_flat_amount: discountFlatAmount,
+        discount_percent_amount: discountPercentAmount,
+        subtotal_after_discounts: subtotalAfterDiscounts,
+        travel_fee: travelFee,
+        tax_amount: taxAmount,
+        grand_total: grandTotal,
+        deposit_due: depositDue,
+        total_savings: totalSavings,
+      };
+    };
+
+    const summaries = [
+      calculateSummary('no_materials', 'No Materials', 0),
+      ...(gasket ? [calculateSummary('gasket', 'Gasket', gasket.sell_per_linear_ft)] : []),
+      ...(caulk ? [calculateSummary('caulk', 'Caulk', caulk.sell_per_linear_ft)] : []),
+    ];
+
+    // Window size rollup
+    const sizeMap = new Map<string, { w: number; h: number; qty: number }>();
+    for (const section of calculatedSections) {
+      for (const win of section.windows) {
+        const key = `${win.width_in}x${win.height_in}`;
+        const item = sizeMap.get(key) ?? { w: win.width_in, h: win.height_in, qty: 0 };
+        item.qty += Math.max(1, win.quantity || 1);
+        sizeMap.set(key, item);
       }
     }
+    const windowSizeRollup = [...sizeMap.values()]
+      .map(i => ({
+        width_in: i.w,
+        height_in: i.h,
+        total_qty: i.qty,
+        area_sqft_each: +((i.w * i.h) / 144).toFixed(2),
+      }))
+      .sort((a, b) => b.area_sqft_each - a.area_sqft_each || (a.width_in * a.height_in) - (b.width_in * b.height_in));
 
-    const subtotal = windowsSubtotal + materialsTotal;
-    const discountFlatAmount = Math.min(quote.discount_flat || 0, subtotal);
-    const subtotalAfterFlat = subtotal - discountFlatAmount;
-    const discountPercentAmount = subtotalAfterFlat * ((quote.discount_percent || 0) / 100);
-    const subtotalAfterDiscounts = subtotalAfterFlat - discountPercentAmount;
-    const travelFee = quote.travel_fee || 0;
-    const taxableBase = quote.travel_taxable ? subtotalAfterDiscounts + travelFee : subtotalAfterDiscounts;
-    const taxAmount = taxableBase * ((quote.tax_percent || 0) / 100);
-    const grandTotal = subtotalAfterDiscounts + travelFee + taxAmount;
-    const depositDue = grandTotal * ((quote.deposit_percent || 0) / 100);
-    const totalSavings = discountFlatAmount + discountPercentAmount;
+    // Determine which summaries to render
+    const selectedSummaries = summary === 'all' 
+      ? summaries 
+      : summaries.filter(s => s.key === summary || summary === undefined);
+    
+    if (selectedSummaries.length === 0) {
+      selectedSummaries.push(summaries[0]); // Default to no_materials
+    }
 
     // Generate HTML
     const html = generatePDFHTML({
@@ -352,22 +392,9 @@ Deno.serve(async (req) => {
       settings: companySettings,
       logoDataUrl,
       themeStyle: companySettings.theme_style || 'Modern',
-      totals: {
-        subtotal,
-        materials_option: materialsOption,
-        materials_total: materialsTotal,
-        materials_unit_price: materialsUnitPrice,
-        total_linear_feet_security: totalLinearFeetSecurity,
-        discount_flat_amount: discountFlatAmount,
-        discount_percent_amount: discountPercentAmount,
-        subtotal_after_discounts: subtotalAfterDiscounts,
-        travel_fee: travelFee,
-        taxable_base: taxableBase,
-        tax_amount: taxAmount,
-        grand_total: grandTotal,
-        deposit_due: depositDue,
-        total_savings: totalSavings,
-      },
+      summaries: selectedSummaries,
+      totalLinearFeetSecurity,
+      windowSizeRollup,
       filmMap,
     });
 
@@ -390,7 +417,7 @@ Deno.serve(async (req) => {
   }
 });
 
-function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, totals, filmMap }: any): string {
+function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, summaries, totalLinearFeetSecurity, windowSizeRollup, filmMap }: any): string {
   const formatCurrency = (amount: number) => 
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   
@@ -851,23 +878,28 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, t
     </div>
   </div>
 
-  <div class="hero-band">
-    <div class="hero-content">
-      <div class="grand-total-section">
-        <h2>Total Investment</h2>
-        <div class="grand-total-amount">${formatCurrency(totals.grand_total)}</div>
-        ${totals.deposit_due > 0 ? `
-          <div class="deposit-info">Deposit Due: ${formatCurrency(totals.deposit_due)}</div>
-        ` : ''}
-      </div>
-      <div class="quote-meta">
-        <div class="quote-label">Quote Number</div>
-        <div class="quote-number">${quote.quote_number}</div>
-        <div style="margin-top: 12px;">${new Date(quote.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-        <div>Status: <strong>${quote.status}</strong></div>
+  ${summaries.map((summary: any, idx: number) => `
+    ${idx > 0 ? '<div style="page-break-before: always;"></div>' : ''}
+    
+    <div class="hero-band">
+      <div class="hero-content">
+        <div class="grand-total-section">
+          <h2>Total Investment ${summaries.length > 1 ? `— ${summary.label}` : ''}</h2>
+          <div class="grand-total-amount">${formatCurrency(summary.grand_total)}</div>
+          ${summary.deposit_due > 0 ? `
+            <div class="deposit-info">Deposit Due: ${formatCurrency(summary.deposit_due)}</div>
+          ` : ''}
+        </div>
+        <div class="quote-meta">
+          <div class="quote-label">Quote Number</div>
+          <div class="quote-number">${quote.quote_number}</div>
+          <div style="margin-top: 12px;">${new Date(quote.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+          <div>Status: <strong>${quote.status}</strong></div>
+        </div>
       </div>
     </div>
-  </div>
+    
+    ${idx === 0 ? `
 
   <div class="customer-card">
     <div class="customer-grid">
@@ -920,11 +952,11 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, t
     </div>
   </div>
 
-  ${totals.total_savings > 0 ? `
-    <div class="savings-banner">
-      🎉 You're saving ${formatCurrency(totals.total_savings)} on this quote!
-    </div>
-  ` : ''}
+    ${summary.total_savings > 0 ? `
+      <div class="savings-banner">
+        🎉 You're saving ${formatCurrency(summary.total_savings)} on this quote!
+      </div>
+    ` : ''}
 
   ${filmLegend.length > 0 ? `
     <div class="film-chips">
@@ -983,21 +1015,101 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, t
     </tbody>
   </table>
 
-  ${totals.materials_total > 0 ? `
-    <div style="background: #f8fafc; padding: 20px 24px; border-radius: 12px; margin-bottom: 24px; border: 1px solid #e2e8f0;">
-      <h3 style="font-size: 14px; font-weight: 600; color: ${brandShade}; margin-bottom: 12px; text-transform: uppercase;">Materials (${totals.materials_option})</h3>
-      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px;">
-        <div>
-          <span style="color: #64748b;">Security film linear feet:</span>
-          <span style="font-weight: 600; margin-left: 8px;">${totals.total_linear_feet_security.toFixed(2)} ft</span>
+    <!-- Totals Card -->
+    <div class="totals-card">
+      <h3 style="font-size: 16px; font-weight: 700; color: ${brandShade}; margin-bottom: 16px;">Quote Summary${summaries.length > 1 ? ` — ${summary.label}` : ''}</h3>
+      
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 14px;">
+        <div style="display: flex; justify-between;">
+          <span style="color: #64748b;">Subtotal</span>
+          <span style="font-weight: 600;">${formatCurrency(summary.subtotal)}</span>
         </div>
-        <div>
-          <span style="color: #64748b;">@ ${formatCurrency(totals.materials_unit_price)}/ft</span>
-          <span style="font-weight: 700; margin-left: 12px; color: ${brandColor};">${formatCurrency(totals.materials_total)}</span>
+        
+        ${summary.materials_total > 0 ? `
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div style="display: flex; flex-direction: column;">
+              <span style="color: #64748b;">Materials (${summary.label})</span>
+              <span style="font-size: 12px; color: #94a3b8;">${totalLinearFeetSecurity.toFixed(2)} ft @ ${formatCurrency(summary.materials_unit_price)}/ft</span>
+            </div>
+            <span style="font-weight: 600; color: ${brandColor};">${formatCurrency(summary.materials_total)}</span>
+          </div>
+        ` : ''}
+        
+        ${summary.discount_flat_amount > 0 ? `
+          <div style="display: flex; justify-between;">
+            <span style="color: #64748b;">Discount (Flat)</span>
+            <span style="font-weight: 600; color: #10b981;">-${formatCurrency(summary.discount_flat_amount)}</span>
+          </div>
+        ` : ''}
+        
+        ${summary.discount_percent_amount > 0 ? `
+          <div style="display: flex; justify-between;">
+            <span style="color: #64748b;">Discount (%)</span>
+            <span style="font-weight: 600; color: #10b981;">-${formatCurrency(summary.discount_percent_amount)}</span>
+          </div>
+        ` : ''}
+        
+        ${summary.travel_fee > 0 ? `
+          <div style="display: flex; justify-between;">
+            <span style="color: #64748b;">Travel Fee</span>
+            <span style="font-weight: 600;">${formatCurrency(summary.travel_fee)}</span>
+          </div>
+        ` : ''}
+        
+        <div style="display: flex; justify-between;">
+          <span style="color: #64748b;">Tax</span>
+          <span style="font-weight: 600;">${formatCurrency(summary.tax_amount)}</span>
         </div>
+        
+        <div style="border-top: 2px solid ${brandTint}; padding-top: 12px; display: flex; justify-between; align-items: center;">
+          <span style="font-weight: 700; font-size: 16px;">Grand Total</span>
+          <span style="font-weight: 700; font-size: 20px; color: ${brandColor};">${formatCurrency(summary.grand_total)}</span>
+        </div>
+        
+        ${summary.deposit_due > 0 ? `
+          <div style="background: ${brandTint}20; padding: 12px 16px; border-radius: 8px; border: 1px solid ${brandTint};">
+            <div style="display: flex; justify-between; align-items: center;">
+              <div>
+                <div style="font-weight: 600; color: ${brandShade};">Deposit Due</div>
+                <div style="font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Due upon signing</div>
+              </div>
+              <span style="font-weight: 700; font-size: 18px; color: ${brandShade};">${formatCurrency(summary.deposit_due)}</span>
+            </div>
+          </div>
+        ` : ''}
       </div>
     </div>
-  ` : ''}
+
+    ${idx === 0 && windowSizeRollup.length > 0 ? `
+      <div style="margin-top: 32px; background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0;">
+        <h3 style="font-size: 16px; font-weight: 700; color: ${brandShade}; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"/>
+          </svg>
+          Window Summary
+        </h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: ${brandTint}20; border-bottom: 2px solid ${brandTint};">
+              <th style="padding: 12px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Size (W×H in)</th>
+              <th style="padding: 12px; text-align: right; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Area (sq ft each)</th>
+              <th style="padding: 12px; text-align: right; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${windowSizeRollup.map((item: any, i: number) => `
+              <tr style="${i % 2 === 1 ? `background: ${brandTint}10;` : ''}">
+                <td style="padding: 10px; font-family: monospace;">${item.width_in}×${item.height_in}</td>
+                <td style="padding: 10px; text-align: right; font-family: monospace;">${formatSqft(item.area_sqft_each)}</td>
+                <td style="padding: 10px; text-align: right; font-weight: 600;">${item.total_qty}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    ` : ''}
+    ` : ''}
+  `).join('')}
 
   ${quote.notes_customer ? `
     <div class="notes-block">

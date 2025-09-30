@@ -149,7 +149,6 @@ export type Database = {
           discount_percent: number | null
           global_film_id: string | null
           id: string
-          materials_option: string
           notes_customer: string | null
           notes_internal: string | null
           quote_number: string
@@ -171,7 +170,6 @@ export type Database = {
           discount_percent?: number | null
           global_film_id?: string | null
           id?: string
-          materials_option?: string
           notes_customer?: string | null
           notes_internal?: string | null
           quote_number: string
@@ -193,7 +191,6 @@ export type Database = {
           discount_percent?: number | null
           global_film_id?: string | null
           id?: string
-          materials_option?: string
           notes_customer?: string | null
           notes_internal?: string | null
           quote_number?: string

@@ -11,7 +11,8 @@ import { Plus, Save, ArrowLeft, Download } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { QuoteSection } from "@/components/quote/QuoteSection";
-import { QuoteTotalsPanel } from "@/components/quote/QuoteTotalsPanel";
+import { QuoteSummariesPanel } from "@/components/quote/QuoteSummariesPanel";
+import { WindowSummary } from "@/components/quote/WindowSummary";
 import { calculateQuote, FilmData, MaterialData, SectionData, WindowData, formatCurrency } from "@/lib/quoteCalculations";
 import { format } from "date-fns";
 
@@ -38,7 +39,6 @@ export default function QuoteBuilder() {
   const [travelFee, setTravelFee] = useState("0");
   const [depositPercent, setDepositPercent] = useState("0");
   const [travelTaxable, setTravelTaxable] = useState(false);
-  const [materialsOption, setMaterialsOption] = useState("N/A");
   const [notesCustomer, setNotesCustomer] = useState("");
   const [notesInternal, setNotesInternal] = useState("");
 
@@ -140,7 +140,6 @@ export default function QuoteBuilder() {
       setTravelFee(quote.travel_fee.toString());
       setDepositPercent(quote.deposit_percent.toString());
       setTravelTaxable(quote.travel_taxable);
-      setMaterialsOption(quote.materials_option || "N/A");
       setNotesCustomer(quote.notes_customer || "");
       setNotesInternal(quote.notes_internal || "");
 
@@ -214,7 +213,6 @@ export default function QuoteBuilder() {
         travel_fee: parseFloat(travelFee) || 0,
         deposit_percent: parseFloat(depositPercent) || 0,
         travel_taxable: travelTaxable,
-        materials_option: materialsOption,
         notes_internal: notesInternal || null,
         notes_customer: notesCustomer || null,
         created_by: user.id,
@@ -381,7 +379,7 @@ export default function QuoteBuilder() {
     }));
   };
 
-  const downloadPDF = async () => {
+  const downloadPDF = async (summaryKey?: string) => {
     if (!id || id === "new") {
       toast({
         title: "Save first",
@@ -395,7 +393,7 @@ export default function QuoteBuilder() {
       setLoading(true);
 
       const { data, error } = await supabase.functions.invoke('generate-pdf', {
-        body: { quoteId: id },
+        body: { quoteId: id, summary: summaryKey },
         headers: {
           'Accept': 'text/html',
         },
@@ -441,7 +439,6 @@ export default function QuoteBuilder() {
       tax_percent: parseFloat(taxPercent) || 0,
       travel_fee: parseFloat(travelFee) || 0,
       travel_taxable: travelTaxable,
-      materials_option: materialsOption,
       sections,
     },
     films,
@@ -468,12 +465,6 @@ export default function QuoteBuilder() {
           </div>
         </div>
         <div className="flex gap-2">
-          {id && id !== "new" && (
-            <Button onClick={downloadPDF} disabled={loading} variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Download PDF
-            </Button>
-          )}
           <Button onClick={saveQuote} disabled={loading}>
             <Save className="mr-2 h-4 w-4" />
             Save Quote
@@ -647,32 +638,6 @@ export default function QuoteBuilder() {
                 </div>
               </div>
               <div>
-                <Label>Materials (for Security Film)</Label>
-                <Select value={materialsOption} onValueChange={setMaterialsOption}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="N/A">N/A</SelectItem>
-                    <SelectItem value="Gasket">Gasket</SelectItem>
-                    <SelectItem value="Caulk">Caulk</SelectItem>
-                    <SelectItem value="Both">Both</SelectItem>
-                  </SelectContent>
-                </Select>
-                {materialsOption !== 'N/A' && calculation.totals.total_linear_feet_security > 0 && (
-                  <div className="mt-2 p-3 bg-muted/50 rounded-md text-sm space-y-1">
-                    <p className="text-muted-foreground">
-                      Materials are charged by linear foot for windows using security film.
-                    </p>
-                    <div className="font-mono space-y-0.5">
-                      <p>Linear feet (security): {calculation.totals.total_linear_feet_security.toFixed(2)} ft</p>
-                      <p>Unit price: {formatCurrency(calculation.totals.materials_unit_price_sell)} / ft</p>
-                      <p className="font-semibold">Materials total: {formatCurrency(calculation.totals.materials_total)}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div>
                 <Label>Notes to Customer</Label>
                 <Textarea
                   value={notesCustomer}
@@ -693,11 +658,15 @@ export default function QuoteBuilder() {
         </div>
 
         {/* Totals Panel */}
-        <div className="lg:col-span-1">
-          <QuoteTotalsPanel
-            totals={calculation.totals}
+        <div className="lg:col-span-1 space-y-4">
+          <QuoteSummariesPanel
+            summaries={calculation.summaries}
+            totalLinearFeet={calculation.total_linear_feet_security}
             validationErrors={calculation.validation_errors}
+            quoteId={id}
+            onDownloadPDF={downloadPDF}
           />
+          <WindowSummary rollup={calculation.window_size_rollup} />
         </div>
       </div>
     </div>

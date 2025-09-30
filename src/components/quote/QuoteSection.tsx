@@ -152,8 +152,22 @@ export function QuoteSection({
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Width (in)</Label>
                   <Input
                     type="number"
+                    inputMode="decimal"
                     value={window.width_in}
-                    onChange={(e) => onUpdateWindow(section.id, window.id, { width_in: parseInt(e.target.value) || 0 })}
+                    onFocus={(e) => {
+                      e.target.dataset.prev = e.target.value;
+                      e.target.value = '';
+                    }}
+                    onBlur={(e) => {
+                      const val = e.target.value.trim();
+                      if (val === '') {
+                        e.target.value = e.target.dataset.prev || '0';
+                      }
+                      onUpdateWindow(section.id, window.id, { width_in: Math.max(0, parseInt(e.target.value) || 0) });
+                    }}
+                    onChange={(e) => {
+                      // Allow typing without triggering updates
+                    }}
                     className="bg-background text-center font-mono"
                   />
                 </div>
@@ -161,8 +175,22 @@ export function QuoteSection({
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Height (in)</Label>
                   <Input
                     type="number"
+                    inputMode="decimal"
                     value={window.height_in}
-                    onChange={(e) => onUpdateWindow(section.id, window.id, { height_in: parseInt(e.target.value) || 0 })}
+                    onFocus={(e) => {
+                      e.target.dataset.prev = e.target.value;
+                      e.target.value = '';
+                    }}
+                    onBlur={(e) => {
+                      const val = e.target.value.trim();
+                      if (val === '') {
+                        e.target.value = e.target.dataset.prev || '0';
+                      }
+                      onUpdateWindow(section.id, window.id, { height_in: Math.max(0, parseInt(e.target.value) || 0) });
+                    }}
+                    onChange={(e) => {
+                      // Allow typing without triggering updates
+                    }}
                     className="bg-background text-center font-mono"
                   />
                 </div>
