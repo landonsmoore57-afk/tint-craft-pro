@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
-import { format, startOfWeek, addWeeks, addDays } from "date-fns";
-import { Calendar as CalendarIcon, Trash2 } from "lucide-react";
+import { format, startOfWeek, addWeeks } from "date-fns";
+import { Calendar as CalendarIcon, Trash2, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface WindowSize {
@@ -50,7 +50,8 @@ interface JobGroup {
 }
 
 export default function Jobs() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState<JobGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
@@ -65,7 +66,6 @@ export default function Jobs() {
   }, [dateRange]);
 
   useEffect(() => {
-    // If date param in URL, scroll to that date section
     const dateParam = searchParams.get('date');
     if (dateParam) {
       setTimeout(() => {
@@ -81,7 +81,6 @@ export default function Jobs() {
       const from = format(dateRange.from, 'yyyy-MM-dd');
       const to = format(dateRange.to, 'yyyy-MM-dd');
 
-      const { data: { user } } = await supabase.auth.getUser();
       const { data: session } = await supabase.auth.getSession();
 
       const response = await fetch(
@@ -171,6 +170,8 @@ export default function Jobs() {
     return status === "done" ? "default" : "secondary";
   };
 
+  const totalJobs = jobs.reduce((sum, g) => sum + g.items.length, 0);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -194,149 +195,186 @@ export default function Jobs() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>
-              {format(dateRange.from, 'MMM d')} - {format(dateRange.to, 'MMM d, yyyy')}
-            </CardTitle>
-            <div className="text-sm text-muted-foreground">
-              {jobs.reduce((sum, g) => sum + g.items.length, 0)} job{jobs.reduce((sum, g) => sum + g.items.length, 0) !== 1 ? 's' : ''} scheduled
+            <div>
+              <CardTitle>Schedule</CardTitle>
+              <CardDescription>
+                {format(dateRange.from, 'MMM d')} - {format(dateRange.to, 'MMM d, yyyy')} • {totalJobs} job{totalJobs !== 1 ? 's' : ''} scheduled
+              </CardDescription>
             </div>
           </div>
         </CardHeader>
 
         <CardContent>
           {loading ? (
-            <div className="text-center py-8">Loading...</div>
+            <div className="text-center py-12 text-muted-foreground">Loading jobs...</div>
           ) : jobs.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No jobs scheduled in this date range
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">No jobs scheduled in this date range</p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-8">
               {jobs.map((group) => (
-                <div key={group.job_date} id={`date-${group.job_date}`} className="space-y-3">
-                  <div className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-2 border-b">
+                <div key={group.job_date} id={`date-${group.job_date}`} className="space-y-4">
+                  <div className="flex items-center gap-3 pb-3 border-b">
                     <h3 className="text-lg font-semibold">
                       {format(new Date(group.job_date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')}
                     </h3>
+                    <Badge variant="outline">{group.items.length} job{group.items.length !== 1 ? 's' : ''}</Badge>
                   </div>
 
-                  {group.items.map((job) => (
-                    <Card key={job.assignment_id}>
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <CardTitle className="text-lg">
-                              {job.customer_name} — Quote #{job.quote_no}
-                            </CardTitle>
-                            {job.site_address && (
-                              <p className="text-sm text-muted-foreground mt-1">{job.site_address}</p>
-                            )}
+                  <div className="space-y-4">
+                    {group.items.map((job) => (
+                      <Card key={job.assignment_id} className="overflow-hidden">
+                        <CardHeader className="bg-muted/50">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-1">
+                                <CardTitle className="text-base">
+                                  {job.customer_name}
+                                </CardTitle>
+                                <Badge variant="outline" className="font-mono">
+                                  #{job.quote_no}
+                                </Badge>
+                                <Badge variant={getStatusColor(job.status) as any} className="capitalize">
+                                  {job.status}
+                                </Badge>
+                              </div>
+                              {job.site_address && (
+                                <CardDescription className="text-sm">{job.site_address}</CardDescription>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => navigate(`/quote/${job.quote_id}`)}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Quote
+                              </Button>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <CalendarIcon className="h-4 w-4 mr-2" />
+                                    Reschedule
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="end">
+                                  <Calendar
+                                    mode="single"
+                                    selected={new Date(group.job_date + 'T00:00:00')}
+                                    onSelect={(date) => date && handleReschedule(job.assignment_id, date)}
+                                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUnassign(job.assignment_id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant={getStatusColor(job.status) as any} className="capitalize">
-                              {job.status}
-                            </Badge>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button variant="outline" size="sm">
-                                  <CalendarIcon className="h-4 w-4 mr-2" />
-                                  Reschedule
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="end">
-                                <Calendar
-                                  mode="single"
-                                  selected={new Date(group.job_date + 'T00:00:00')}
-                                  onSelect={(date) => date && handleReschedule(job.assignment_id, date)}
-                                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                                  initialFocus
-                                />
-                              </PopoverContent>
-                            </Popover>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleUnassign(job.assignment_id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardHeader>
+                        </CardHeader>
 
-                      <CardContent className="space-y-4">
-                        {/* Window Summary */}
-                        <div>
-                          <h4 className="font-semibold mb-2">Window Summary</h4>
-                          <div className="rounded-md border">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Size (W×H in)</TableHead>
-                                  <TableHead className="text-right">Area (sq ft each)</TableHead>
-                                  <TableHead className="text-right">Qty</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {job.window_summary.map((size, idx) => (
-                                  <TableRow key={idx}>
-                                    <TableCell className="font-mono">
-                                      {size.width_in}×{size.height_in}
-                                    </TableCell>
-                                    <TableCell className="text-right">{size.area_sqft_each.toFixed(2)}</TableCell>
-                                    <TableCell className="text-right font-medium">{size.total_qty}</TableCell>
+                        <CardContent className="pt-6">
+                          {/* Window Summary */}
+                          <div className="mb-6">
+                            <h4 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
+                              Window Summary
+                            </h4>
+                            <div className="rounded-md border">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Size (W×H in)</TableHead>
+                                    <TableHead className="text-right">Area (sq ft)</TableHead>
+                                    <TableHead className="text-right">Qty</TableHead>
                                   </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
+                                </TableHeader>
+                                <TableBody>
+                                  {job.window_summary.length > 0 ? (
+                                    job.window_summary.map((size, idx) => (
+                                      <TableRow key={idx}>
+                                        <TableCell className="font-mono font-medium">
+                                          {size.width_in}×{size.height_in}
+                                        </TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                          {size.area_sqft_each.toFixed(2)}
+                                        </TableCell>
+                                        <TableCell className="text-right font-semibold">
+                                          {size.total_qty}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))
+                                  ) : (
+                                    <TableRow>
+                                      <TableCell colSpan={3} className="text-center text-muted-foreground">
+                                        No windows
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                </TableBody>
+                              </Table>
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Rooms Summary */}
-                        {job.rooms_summary && job.rooms_summary.length > 0 && (
-                          <div>
-                            <h4 className="font-semibold mb-2">Rooms Summary</h4>
-                            <Accordion type="single" collapsible className="w-full">
-                              {job.rooms_summary.map((room, idx) => (
-                                <AccordionItem key={idx} value={`room-${idx}`}>
-                                  <AccordionTrigger>
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium">{room.room_label}</span>
-                                      <Badge variant="outline">{room.total_windows_qty} windows</Badge>
-                                    </div>
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <div className="rounded-md border">
+                          {/* Rooms Summary */}
+                          {job.rooms_summary && job.rooms_summary.length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
+                                Rooms Summary
+                              </h4>
+                              <Accordion type="single" collapsible className="w-full">
+                                {job.rooms_summary.map((room, idx) => (
+                                  <AccordionItem key={idx} value={`room-${idx}`} className="border rounded-md mb-2">
+                                    <AccordionTrigger className="px-4 hover:no-underline hover:bg-muted/50">
+                                      <div className="flex items-center gap-3">
+                                        <span className="font-medium">{room.room_label}</span>
+                                        <Badge variant="secondary" className="text-xs">
+                                          {room.total_windows_qty} windows
+                                        </Badge>
+                                      </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-4 pb-4">
                                       <Table>
                                         <TableHeader>
                                           <TableRow>
                                             <TableHead>Size (W×H in)</TableHead>
-                                            <TableHead className="text-right">Area (sq ft each)</TableHead>
+                                            <TableHead className="text-right">Area (sq ft)</TableHead>
                                             <TableHead className="text-right">Qty</TableHead>
                                           </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                           {room.sizes.map((size, sizeIdx) => (
                                             <TableRow key={sizeIdx}>
-                                              <TableCell className="font-mono">
+                                              <TableCell className="font-mono font-medium">
                                                 {size.width_in}×{size.height_in}
                                               </TableCell>
-                                              <TableCell className="text-right">{size.area_sqft_each.toFixed(2)}</TableCell>
-                                              <TableCell className="text-right font-medium">{size.total_qty}</TableCell>
+                                              <TableCell className="text-right tabular-nums">
+                                                {size.area_sqft_each.toFixed(2)}
+                                              </TableCell>
+                                              <TableCell className="text-right font-semibold">
+                                                {size.total_qty}
+                                              </TableCell>
                                             </TableRow>
                                           ))}
                                         </TableBody>
                                       </Table>
-                                    </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ))}
-                            </Accordion>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                ))}
+                              </Accordion>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
