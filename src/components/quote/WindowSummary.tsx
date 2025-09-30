@@ -44,7 +44,7 @@ export function WindowSummary({ rollup }: WindowSummaryProps) {
                         <span className="cursor-help">{formatRollPlan(item.roll_plan)}</span>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p className="text-xs">Calculated with trim allowance of 1" per side</p>
+                        <p className="text-xs">Calculated with trim allowance of 0.5" per side</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
