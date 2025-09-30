@@ -23,6 +23,7 @@ interface Film {
   sell_per_sqft: number;
   notes: string | null;
   active: boolean;
+  security_film: boolean;
 }
 
 export default function Films() {
@@ -43,6 +44,7 @@ export default function Films() {
     sell_per_sqft: "",
     notes: "",
     active: true,
+    security_film: false,
   });
 
   useEffect(() => {
@@ -82,6 +84,7 @@ export default function Films() {
       sell_per_sqft: parseFloat(formData.sell_per_sqft),
       notes: formData.notes || null,
       active: formData.active,
+      security_film: formData.security_film,
     };
 
     try {
@@ -138,6 +141,7 @@ export default function Films() {
       sell_per_sqft: "",
       notes: "",
       active: true,
+      security_film: false,
     });
     setEditingFilm(null);
   };
@@ -154,6 +158,7 @@ export default function Films() {
       sell_per_sqft: film.sell_per_sqft.toString(),
       notes: film.notes || "",
       active: film.active,
+      security_film: film.security_film,
     });
     setDialogOpen(true);
   };
@@ -267,6 +272,13 @@ export default function Films() {
                   />
                   <Label>Active</Label>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={formData.security_film}
+                    onCheckedChange={(checked) => setFormData({ ...formData, security_film: checked })}
+                  />
+                  <Label>Security Film</Label>
+                </div>
               </div>
               <div>
                 <Label>Notes</Label>
@@ -314,6 +326,7 @@ export default function Films() {
                   <TableHead>Series</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>VLT</TableHead>
+                  <TableHead>Security</TableHead>
                   <TableHead>Cost/SqFt</TableHead>
                   <TableHead>Sell/SqFt</TableHead>
                   <TableHead>Margin</TableHead>
@@ -324,13 +337,13 @@ export default function Films() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : filteredFilms.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       No films found
                     </TableCell>
                   </TableRow>
@@ -343,6 +356,11 @@ export default function Films() {
                         <TableCell>{film.series}</TableCell>
                         <TableCell>{film.name}</TableCell>
                         <TableCell>{film.vlt ? `${film.vlt}%` : "-"}</TableCell>
+                        <TableCell>
+                          <Badge variant={film.security_film ? "default" : "secondary"}>
+                            {film.security_film ? "Yes" : "No"}
+                          </Badge>
+                        </TableCell>
                         <TableCell>${film.cost_per_sqft.toFixed(2)}</TableCell>
                         <TableCell>${film.sell_per_sqft.toFixed(2)}</TableCell>
                         <TableCell>

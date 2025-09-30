@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { FileText, Film, Settings as SettingsIcon, LogOut, Menu, Sparkles, X } from "lucide-react";
+import { FileText, Film, Package, Settings as SettingsIcon, LogOut, Menu, Sparkles, X } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +42,7 @@ export default function Layout() {
   const navItems = [
     { path: "/", label: "Quotes", icon: FileText },
     { path: "/films", label: "Films", icon: Film },
+    { path: "/materials", label: "Materials", icon: Package },
     { path: "/settings", label: "Settings", icon: SettingsIcon },
   ];
 

@@ -12,6 +12,15 @@ interface FilmData {
   name: string;
   vlt: number | null;
   sell_per_sqft: number;
+  security_film: boolean;
+}
+
+interface MaterialData {
+  id: string;
+  key: string;
+  name: string;
+  sell_per_linear_ft: number;
+  active: boolean;
 }
 
 // Color manipulation helpers
@@ -209,6 +218,14 @@ Deno.serve(async (req) => {
 
     if (filmsError) throw filmsError;
 
+    // Fetch materials
+    const { data: materials, error: materialsError } = await supabase
+      .from('materials')
+      .select('*')
+      .eq('active', true);
+
+    if (materialsError) throw materialsError;
+
     // Fetch company settings
     const { data: settings, error: settingsError } = await supabase
       .from('company_settings')
@@ -243,7 +260,8 @@ Deno.serve(async (req) => {
       return null;
     };
 
-    let subtotal = 0;
+    let windowsSubtotal = 0;
+    let totalLinearFeetSecurity = 0;
     const calculatedSections: any[] = [];
 
     for (const section of sections) {
@@ -258,6 +276,16 @@ Deno.serve(async (req) => {
         const sellPerSqft = window.override_sell_per_sqft ?? resolvedFilm?.sell_per_sqft ?? 0;
         const lineTotal = effectiveAreaSqft * sellPerSqft;
         
+        // Calculate linear feet for security film
+        const isSecurity = resolvedFilm?.security_film ?? false;
+        const linearFeet = isSecurity 
+          ? window.quantity * (2 * (window.width_in + window.height_in) / 12)
+          : 0;
+        
+        if (linearFeet > 0) {
+          totalLinearFeetSecurity += linearFeet;
+        }
+        
         // Track if override was used
         const hasOverride = window.override_sell_per_sqft !== null || 
                           (window.window_film_id !== null && window.window_film_id !== section.section_film_id && window.window_film_id !== quote.global_film_id);
@@ -269,10 +297,12 @@ Deno.serve(async (req) => {
           resolved_film: resolvedFilm,
           sell_per_sqft: sellPerSqft,
           line_total: lineTotal,
+          linear_feet: linearFeet,
+          is_security: isSecurity,
           has_override: hasOverride,
         });
 
-        subtotal += lineTotal;
+        windowsSubtotal += lineTotal;
       }
 
       calculatedSections.push({
@@ -282,6 +312,28 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Calculate materials
+    const materialsOption = quote.materials_option || 'N/A';
+    let materialsTotal = 0;
+    let materialsUnitPrice = 0;
+
+    if (materialsOption !== 'N/A' && totalLinearFeetSecurity > 0 && materials) {
+      const gasket = materials.find((m: MaterialData) => m.key === 'gasket');
+      const caulk = materials.find((m: MaterialData) => m.key === 'caulk');
+
+      if (materialsOption === 'Gasket' && gasket) {
+        materialsUnitPrice = gasket.sell_per_linear_ft;
+        materialsTotal = totalLinearFeetSecurity * gasket.sell_per_linear_ft;
+      } else if (materialsOption === 'Caulk' && caulk) {
+        materialsUnitPrice = caulk.sell_per_linear_ft;
+        materialsTotal = totalLinearFeetSecurity * caulk.sell_per_linear_ft;
+      } else if (materialsOption === 'Both' && gasket && caulk) {
+        materialsUnitPrice = gasket.sell_per_linear_ft + caulk.sell_per_linear_ft;
+        materialsTotal = totalLinearFeetSecurity * (gasket.sell_per_linear_ft + caulk.sell_per_linear_ft);
+      }
+    }
+
+    const subtotal = windowsSubtotal + materialsTotal;
     const discountFlatAmount = Math.min(quote.discount_flat || 0, subtotal);
     const subtotalAfterFlat = subtotal - discountFlatAmount;
     const discountPercentAmount = subtotalAfterFlat * ((quote.discount_percent || 0) / 100);
@@ -302,6 +354,10 @@ Deno.serve(async (req) => {
       themeStyle: companySettings.theme_style || 'Modern',
       totals: {
         subtotal,
+        materials_option: materialsOption,
+        materials_total: materialsTotal,
+        materials_unit_price: materialsUnitPrice,
+        total_linear_feet_security: totalLinearFeetSecurity,
         discount_flat_amount: discountFlatAmount,
         discount_percent_amount: discountPercentAmount,
         subtotal_after_discounts: subtotalAfterDiscounts,
@@ -926,6 +982,22 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, t
       `).join('')}
     </tbody>
   </table>
+
+  ${totals.materials_total > 0 ? `
+    <div style="background: #f8fafc; padding: 20px 24px; border-radius: 12px; margin-bottom: 24px; border: 1px solid #e2e8f0;">
+      <h3 style="font-size: 14px; font-weight: 600; color: ${brandShade}; margin-bottom: 12px; text-transform: uppercase;">Materials (${totals.materials_option})</h3>
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px;">
+        <div>
+          <span style="color: #64748b;">Security film linear feet:</span>
+          <span style="font-weight: 600; margin-left: 8px;">${totals.total_linear_feet_security.toFixed(2)} ft</span>
+        </div>
+        <div>
+          <span style="color: #64748b;">@ ${formatCurrency(totals.materials_unit_price)}/ft</span>
+          <span style="font-weight: 700; margin-left: 12px; color: ${brandColor};">${formatCurrency(totals.materials_total)}</span>
+        </div>
+      </div>
+    </div>
+  ` : ''}
 
   ${quote.notes_customer ? `
     <div class="notes-block">

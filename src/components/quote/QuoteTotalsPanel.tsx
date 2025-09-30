@@ -42,6 +42,13 @@ export function QuoteTotalsPanel({ totals, validationErrors }: QuoteTotalsPanelP
               <span className="font-semibold font-mono">{formatCurrency(totals.subtotal)}</span>
             </div>
             
+            {totals.materials_total > 0 && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Materials ({totals.materials_option})</span>
+                <span className="font-semibold font-mono text-primary">{formatCurrency(totals.materials_total)}</span>
+              </div>
+            )}
+
             {totals.discount_flat_amount > 0 && (
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Discount (Flat)</span>

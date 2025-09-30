@@ -6,6 +6,17 @@ export interface FilmData {
   vlt: number | null;
   cost_per_sqft: number;
   sell_per_sqft: number;
+  security_film: boolean;
+}
+
+export interface MaterialData {
+  id: string;
+  key: string;
+  name: string;
+  unit: string;
+  cost_per_linear_ft: number;
+  sell_per_linear_ft: number;
+  active: boolean;
 }
 
 export interface WindowData {
@@ -35,6 +46,7 @@ export interface QuoteData {
   tax_percent: number;
   travel_fee: number;
   travel_taxable: boolean;
+  materials_option: string;
   sections: SectionData[];
 }
 
@@ -44,6 +56,8 @@ export interface WindowCalculation extends WindowData {
   resolved_film: FilmData | null;
   sell_per_sqft: number;
   line_total: number;
+  linear_feet: number;
+  is_security: boolean;
 }
 
 export interface SectionCalculation extends Omit<SectionData, 'windows'> {
@@ -53,6 +67,12 @@ export interface SectionCalculation extends Omit<SectionData, 'windows'> {
 
 export interface QuoteTotals {
   subtotal: number;
+  total_linear_feet_security: number;
+  materials_option: string;
+  materials_unit_price_sell: number;
+  materials_unit_price_cost: number;
+  materials_total: number;
+  materials_cost_total: number;
   discount_flat_amount: number;
   discount_percent_amount: number;
   subtotal_after_discounts: number;
@@ -72,6 +92,7 @@ export interface QuoteCalculationResult {
 export function calculateQuote(
   quoteData: QuoteData,
   films: FilmData[],
+  materials: MaterialData[],
   deposit_percent: number = 0
 ): QuoteCalculationResult {
   const validation_errors: string[] = [];
@@ -127,6 +148,12 @@ export function calculateQuote(
       // Calculate line total
       const line_total = effective_area_sqft * sell_per_sqft;
 
+      // Calculate linear feet for security film (perimeter-based)
+      const is_security = resolved_film?.security_film ?? false;
+      const linear_feet = is_security 
+        ? window.quantity * (2 * (window.width_in + window.height_in) / 12)
+        : 0;
+
       return {
         ...window,
         area_sqft,
@@ -134,6 +161,8 @@ export function calculateQuote(
         resolved_film,
         sell_per_sqft,
         line_total,
+        linear_feet,
+        is_security,
       };
     });
 
@@ -147,7 +176,55 @@ export function calculateQuote(
   });
 
   // Calculate totals
-  const subtotal = calculatedSections.reduce((sum, s) => sum + s.section_total, 0);
+  const windows_subtotal = calculatedSections.reduce((sum, s) => sum + s.section_total, 0);
+
+  // Calculate materials for security film windows
+  const total_linear_feet_security = calculatedSections.reduce((sum, s) => 
+    sum + s.windows.reduce((wSum, w) => wSum + w.linear_feet, 0), 0
+  );
+
+  let materials_total = 0;
+  let materials_cost_total = 0;
+  let materials_unit_price_sell = 0;
+  let materials_unit_price_cost = 0;
+
+  const materialsOption = quoteData.materials_option || 'N/A';
+
+  if (materialsOption !== 'N/A' && total_linear_feet_security > 0) {
+    const gasket = materials.find(m => m.key === 'gasket' && m.active);
+    const caulk = materials.find(m => m.key === 'caulk' && m.active);
+
+    if (materialsOption === 'Gasket') {
+      if (!gasket) {
+        validation_errors.push('Materials pricing missing — please configure prices for Gasket.');
+      } else {
+        materials_unit_price_sell = gasket.sell_per_linear_ft;
+        materials_unit_price_cost = gasket.cost_per_linear_ft;
+        materials_total = total_linear_feet_security * gasket.sell_per_linear_ft;
+        materials_cost_total = total_linear_feet_security * gasket.cost_per_linear_ft;
+      }
+    } else if (materialsOption === 'Caulk') {
+      if (!caulk) {
+        validation_errors.push('Materials pricing missing — please configure prices for Caulk.');
+      } else {
+        materials_unit_price_sell = caulk.sell_per_linear_ft;
+        materials_unit_price_cost = caulk.cost_per_linear_ft;
+        materials_total = total_linear_feet_security * caulk.sell_per_linear_ft;
+        materials_cost_total = total_linear_feet_security * caulk.cost_per_linear_ft;
+      }
+    } else if (materialsOption === 'Both') {
+      if (!gasket || !caulk) {
+        validation_errors.push('Materials pricing missing — please configure prices for Gasket/Caulk.');
+      } else {
+        materials_unit_price_sell = gasket.sell_per_linear_ft + caulk.sell_per_linear_ft;
+        materials_unit_price_cost = gasket.cost_per_linear_ft + caulk.cost_per_linear_ft;
+        materials_total = total_linear_feet_security * (gasket.sell_per_linear_ft + caulk.sell_per_linear_ft);
+        materials_cost_total = total_linear_feet_security * (gasket.cost_per_linear_ft + caulk.cost_per_linear_ft);
+      }
+    }
+  }
+
+  const subtotal = windows_subtotal + materials_total;
 
   // Apply flat discount first
   const discount_flat_amount = Math.min(quoteData.discount_flat, subtotal);
@@ -176,6 +253,12 @@ export function calculateQuote(
 
   const totals: QuoteTotals = {
     subtotal,
+    total_linear_feet_security,
+    materials_option: materialsOption,
+    materials_unit_price_sell,
+    materials_unit_price_cost,
+    materials_total,
+    materials_cost_total,
     discount_flat_amount,
     discount_percent_amount,
     subtotal_after_discounts,

@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { QuoteSection } from "@/components/quote/QuoteSection";
 import { QuoteTotalsPanel } from "@/components/quote/QuoteTotalsPanel";
-import { calculateQuote, FilmData, SectionData, WindowData } from "@/lib/quoteCalculations";
+import { calculateQuote, FilmData, MaterialData, SectionData, WindowData, formatCurrency } from "@/lib/quoteCalculations";
 import { format } from "date-fns";
 
 export default function QuoteBuilder() {
@@ -21,6 +21,7 @@ export default function QuoteBuilder() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [films, setFilms] = useState<FilmData[]>([]);
+  const [materials, setMaterials] = useState<MaterialData[]>([]);
 
   // Quote header data
   const [customerName, setCustomerName] = useState("");
@@ -37,6 +38,7 @@ export default function QuoteBuilder() {
   const [travelFee, setTravelFee] = useState("0");
   const [depositPercent, setDepositPercent] = useState("0");
   const [travelTaxable, setTravelTaxable] = useState(false);
+  const [materialsOption, setMaterialsOption] = useState("N/A");
   const [notesCustomer, setNotesCustomer] = useState("");
   const [notesInternal, setNotesInternal] = useState("");
 
@@ -54,6 +56,7 @@ export default function QuoteBuilder() {
 
   useEffect(() => {
     fetchFilms();
+    fetchMaterials();
     if (id && id !== "new") {
       loadQuote(id);
     }
@@ -72,6 +75,24 @@ export default function QuoteBuilder() {
     } catch (error: any) {
       toast({
         title: "Error fetching films",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchMaterials = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("materials")
+        .select("*")
+        .eq("active", true);
+
+      if (error) throw error;
+      setMaterials(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error fetching materials",
         description: error.message,
         variant: "destructive",
       });
@@ -119,6 +140,7 @@ export default function QuoteBuilder() {
       setTravelFee(quote.travel_fee.toString());
       setDepositPercent(quote.deposit_percent.toString());
       setTravelTaxable(quote.travel_taxable);
+      setMaterialsOption(quote.materials_option || "N/A");
       setNotesCustomer(quote.notes_customer || "");
       setNotesInternal(quote.notes_internal || "");
 
@@ -192,6 +214,7 @@ export default function QuoteBuilder() {
         travel_fee: parseFloat(travelFee) || 0,
         deposit_percent: parseFloat(depositPercent) || 0,
         travel_taxable: travelTaxable,
+        materials_option: materialsOption,
         notes_internal: notesInternal || null,
         notes_customer: notesCustomer || null,
         created_by: user.id,
@@ -418,9 +441,11 @@ export default function QuoteBuilder() {
       tax_percent: parseFloat(taxPercent) || 0,
       travel_fee: parseFloat(travelFee) || 0,
       travel_taxable: travelTaxable,
+      materials_option: materialsOption,
       sections,
     },
     films,
+    materials,
     parseFloat(depositPercent) || 0
   );
 
@@ -620,6 +645,32 @@ export default function QuoteBuilder() {
                   />
                   <Label>Travel Taxable</Label>
                 </div>
+              </div>
+              <div>
+                <Label>Materials (for Security Film)</Label>
+                <Select value={materialsOption} onValueChange={setMaterialsOption}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="N/A">N/A</SelectItem>
+                    <SelectItem value="Gasket">Gasket</SelectItem>
+                    <SelectItem value="Caulk">Caulk</SelectItem>
+                    <SelectItem value="Both">Both</SelectItem>
+                  </SelectContent>
+                </Select>
+                {materialsOption !== 'N/A' && calculation.totals.total_linear_feet_security > 0 && (
+                  <div className="mt-2 p-3 bg-muted/50 rounded-md text-sm space-y-1">
+                    <p className="text-muted-foreground">
+                      Materials are charged by linear foot for windows using security film.
+                    </p>
+                    <div className="font-mono space-y-0.5">
+                      <p>Linear feet (security): {calculation.totals.total_linear_feet_security.toFixed(2)} ft</p>
+                      <p>Unit price: {formatCurrency(calculation.totals.materials_unit_price_sell)} / ft</p>
+                      <p className="font-semibold">Materials total: {formatCurrency(calculation.totals.materials_total)}</p>
+                    </div>
+                  </div>
+                )}
               </div>
               <div>
                 <Label>Notes to Customer</Label>
