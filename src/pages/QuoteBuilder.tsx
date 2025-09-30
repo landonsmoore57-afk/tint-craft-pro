@@ -643,8 +643,6 @@ export default function QuoteBuilder() {
                   onChange={setGlobalFilmId}
                   placeholder="Select a film..."
                 />
-                  </SelectContent>
-                </Select>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
