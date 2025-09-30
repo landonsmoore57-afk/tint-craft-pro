@@ -12,57 +12,85 @@ export function QuoteTotalsPanel({ totals, validationErrors }: QuoteTotalsPanelP
   return (
     <div className="sticky top-6 space-y-4">
       {validationErrors.length > 0 && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="border-destructive/20 bg-destructive/5">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            <ul className="list-disc pl-4 space-y-1">
+          <AlertDescription className="text-sm">
+            <div className="font-medium mb-2">Validation Issues:</div>
+            <ul className="space-y-1">
               {validationErrors.map((error, i) => (
-                <li key={i}>{error}</li>
+                <li key={i} className="flex items-start gap-2">
+                  <span className="w-1 h-1 rounded-full bg-destructive mt-2 flex-shrink-0"></span>
+                  <span>{error}</span>
+                </li>
               ))}
             </ul>
           </AlertDescription>
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Quote Totals</CardTitle>
+      <Card className="shadow-lg border-primary/10">
+        <CardHeader className="bg-gradient-to-r from-quote-totals/10 to-accent/5 border-b">
+          <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-quote-totals"></div>
+            Quote Summary
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span>Subtotal</span>
-            <span className="font-medium">{formatCurrency(totals.subtotal)}</span>
-          </div>
-          {totals.discount_flat_amount > 0 && (
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Discount (flat)</span>
-              <span>-{formatCurrency(totals.discount_flat_amount)}</span>
+        <CardContent className="space-y-4 p-6">
+          <div className="space-y-3">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-semibold font-mono">{formatCurrency(totals.subtotal)}</span>
             </div>
-          )}
-          {totals.discount_percent_amount > 0 && (
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Discount (%)</span>
-              <span>-{formatCurrency(totals.discount_percent_amount)}</span>
+            
+            {totals.discount_flat_amount > 0 && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Discount (Flat)</span>
+                <span className="font-semibold font-mono text-accent">-{formatCurrency(totals.discount_flat_amount)}</span>
+              </div>
+            )}
+            
+            {totals.discount_percent_amount > 0 && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Discount (%)</span>
+                <span className="font-semibold font-mono text-accent">-{formatCurrency(totals.discount_percent_amount)}</span>
+              </div>
+            )}
+            
+            {totals.travel_fee > 0 && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Travel Fee</span>
+                <span className="font-semibold font-mono">{formatCurrency(totals.travel_fee)}</span>
+              </div>
+            )}
+            
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">Tax</span>
+              <span className="font-semibold font-mono">{formatCurrency(totals.tax_amount)}</span>
             </div>
-          )}
-          {totals.travel_fee > 0 && (
-            <div className="flex justify-between text-sm">
-              <span>Travel Fee</span>
-              <span>{formatCurrency(totals.travel_fee)}</span>
+          </div>
+          
+          <div className="border-t border-border pt-4">
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-lg">Grand Total</span>
+              <span className="font-bold text-xl text-quote-totals font-mono">
+                {formatCurrency(totals.grand_total)}
+              </span>
             </div>
-          )}
-          <div className="flex justify-between text-sm">
-            <span>Tax</span>
-            <span>{formatCurrency(totals.tax_amount)}</span>
           </div>
-          <div className="border-t pt-3 flex justify-between font-bold text-lg">
-            <span>Grand Total</span>
-            <span className="text-primary">{formatCurrency(totals.grand_total)}</span>
-          </div>
+          
           {totals.deposit_due > 0 && (
-            <div className="flex justify-between text-sm bg-muted p-2 rounded">
-              <span>Deposit Due</span>
-              <span className="font-semibold">{formatCurrency(totals.deposit_due)}</span>
+            <div className="bg-quote-calculation rounded-lg p-4 border border-quote-calculation-foreground/20">
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="font-semibold text-quote-calculation-foreground">Deposit Due</div>
+                  <div className="text-xs text-quote-calculation-foreground/70 uppercase tracking-wide">
+                    Due upon signing
+                  </div>
+                </div>
+                <span className="font-bold text-lg text-quote-calculation-foreground font-mono">
+                  {formatCurrency(totals.deposit_due)}
+                </span>
+              </div>
             </div>
           )}
         </CardContent>

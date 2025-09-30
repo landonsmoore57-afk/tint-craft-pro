@@ -47,6 +47,16 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        quote: {
+          section: "hsl(var(--quote-section))",
+          "section-border": "hsl(var(--quote-section-border))",
+          window: "hsl(var(--quote-window))",
+          "window-border": "hsl(var(--quote-window-border))",
+          calculation: "hsl(var(--quote-calculation))",
+          "calculation-foreground": "hsl(var(--quote-calculation-foreground))",
+          totals: "hsl(var(--quote-totals))",
+          "totals-foreground": "hsl(var(--quote-totals-foreground))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

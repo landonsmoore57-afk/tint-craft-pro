@@ -8,25 +8,25 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 215 20% 15%;
+    --background: 216 25% 98%;
+    --foreground: 220 25% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 215 20% 15%;
+    --card-foreground: 220 25% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 20% 15%;
+    --popover-foreground: 220 25% 12%;
 
-    --primary: 188 94% 36%;
+    --primary: 211 100% 40%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 15% 93%;
-    --secondary-foreground: 215 20% 15%;
+    --secondary: 212 15% 92%;
+    --secondary-foreground: 220 25% 12%;
 
-    --muted: 215 15% 96%;
-    --muted-foreground: 215 10% 45%;
+    --muted: 216 20% 96%;
+    --muted-foreground: 220 15% 40%;
 
-    --accent: 188 94% 36%;
+    --accent: 31 95% 50%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -35,9 +35,19 @@ All colors MUST be HSL.
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
 
-    --border: 215 15% 88%;
-    --input: 215 15% 88%;
-    --ring: 188 94% 36%;
+    --border: 212 20% 85%;
+    --input: 212 20% 85%;
+    --ring: 211 100% 40%;
+
+    /* Quote-specific design tokens */
+    --quote-section: 0 0% 100%;
+    --quote-section-border: 212 15% 88%;
+    --quote-window: 216 25% 98%;
+    --quote-window-border: 212 12% 90%;
+    --quote-calculation: 211 100% 96%;
+    --quote-calculation-foreground: 211 60% 25%;
+    --quote-totals: 211 100% 50%;
+    --quote-totals-foreground: 0 0% 100%;
 
     --radius: 0.5rem;
 
@@ -52,25 +62,25 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 215 25% 12%;
+    --background: 220 25% 8%;
     --foreground: 0 0% 98%;
 
-    --card: 215 22% 15%;
+    --card: 220 22% 11%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 215 22% 15%;
+    --popover: 220 22% 11%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 188 94% 42%;
+    --primary: 211 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 20% 20%;
+    --secondary: 220 20% 16%;
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 215 20% 20%;
-    --muted-foreground: 215 10% 65%;
+    --muted: 220 20% 16%;
+    --muted-foreground: 220 10% 65%;
 
-    --accent: 188 94% 42%;
+    --accent: 31 95% 55%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -79,9 +89,19 @@ All colors MUST be HSL.
     --success: 142 76% 42%;
     --success-foreground: 0 0% 100%;
 
-    --border: 215 20% 25%;
-    --input: 215 20% 25%;
-    --ring: 188 94% 42%;
+    --border: 220 20% 20%;
+    --input: 220 20% 20%;
+    --ring: 211 100% 50%;
+
+    /* Quote-specific design tokens for dark mode */
+    --quote-section: 220 22% 11%;
+    --quote-section-border: 220 15% 18%;
+    --quote-window: 220 20% 14%;
+    --quote-window-border: 220 12% 22%;
+    --quote-calculation: 211 100% 8%;
+    --quote-calculation-foreground: 211 100% 75%;
+    --quote-totals: 211 100% 50%;
+    --quote-totals-foreground: 0 0% 100%;
 
     --sidebar-background: 215 22% 15%;
     --sidebar-foreground: 0 0% 98%;
