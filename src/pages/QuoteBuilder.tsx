@@ -29,7 +29,7 @@ export default function QuoteBuilder() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [siteAddress, setSiteAddress] = useState("");
-  const [status, setStatus] = useState("Draft");
+  const [status, setStatus] = useState("draft");
   
   // Quote settings
   const [globalFilmId, setGlobalFilmId] = useState<string | null>(null);
@@ -177,12 +177,6 @@ export default function QuoteBuilder() {
     }
   };
 
-  const generateQuoteNumber = () => {
-    const date = format(new Date(), "yyyyMMdd");
-    const random = Math.floor(Math.random() * 9999).toString().padStart(4, "0");
-    return `Q-${date}-${random}`;
-  };
-
   const saveQuote = async () => {
     if (!customerName.trim()) {
       toast({
@@ -200,7 +194,7 @@ export default function QuoteBuilder() {
       if (!user) throw new Error("Not authenticated");
 
       const quoteData = {
-        quote_number: id && id !== "new" ? undefined : generateQuoteNumber(),
+        quote_number: id && id !== "new" ? undefined : `Q-${Date.now()}`, // Legacy field, quote_no is auto-generated
         customer_name: customerName,
         customer_email: customerEmail || null,
         customer_phone: customerPhone || null,
@@ -510,13 +504,11 @@ export default function QuoteBuilder() {
                   <Label>Status</Label>
                   <Select value={status} onValueChange={setStatus}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue className="capitalize" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Draft">Draft</SelectItem>
-                      <SelectItem value="Sent">Sent</SelectItem>
-                      <SelectItem value="Approved">Approved</SelectItem>
-                      <SelectItem value="Declined">Declined</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="done">Done</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

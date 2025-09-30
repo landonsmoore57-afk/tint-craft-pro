@@ -152,21 +152,18 @@ export function QuoteSection({
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Width (in)</Label>
                   <Input
                     type="number"
-                    inputMode="decimal"
+                    inputMode="numeric"
+                    min="1"
+                    step="1"
                     value={window.width_in}
                     onFocus={(e) => {
-                      e.target.dataset.prev = e.target.value;
-                      e.target.value = '';
-                    }}
-                    onBlur={(e) => {
-                      const val = e.target.value.trim();
-                      if (val === '') {
-                        e.target.value = e.target.dataset.prev || '0';
-                      }
-                      onUpdateWindow(section.id, window.id, { width_in: Math.max(0, parseInt(e.target.value) || 0) });
+                      requestAnimationFrame(() => e.target.select());
                     }}
                     onChange={(e) => {
-                      // Allow typing without triggering updates
+                      const val = e.target.value;
+                      if (val === "") return; // Allow empty during typing
+                      const newVal = Math.max(1, parseInt(val) || 1);
+                      onUpdateWindow(section.id, window.id, { width_in: newVal });
                     }}
                     className="bg-background text-center font-mono"
                   />
@@ -175,21 +172,18 @@ export function QuoteSection({
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Height (in)</Label>
                   <Input
                     type="number"
-                    inputMode="decimal"
+                    inputMode="numeric"
+                    min="1"
+                    step="1"
                     value={window.height_in}
                     onFocus={(e) => {
-                      e.target.dataset.prev = e.target.value;
-                      e.target.value = '';
-                    }}
-                    onBlur={(e) => {
-                      const val = e.target.value.trim();
-                      if (val === '') {
-                        e.target.value = e.target.dataset.prev || '0';
-                      }
-                      onUpdateWindow(section.id, window.id, { height_in: Math.max(0, parseInt(e.target.value) || 0) });
+                      requestAnimationFrame(() => e.target.select());
                     }}
                     onChange={(e) => {
-                      // Allow typing without triggering updates
+                      const val = e.target.value;
+                      if (val === "") return; // Allow empty during typing
+                      const newVal = Math.max(1, parseInt(val) || 1);
+                      onUpdateWindow(section.id, window.id, { height_in: newVal });
                     }}
                     className="bg-background text-center font-mono"
                   />

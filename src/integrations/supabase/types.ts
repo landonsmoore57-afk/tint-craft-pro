@@ -151,6 +151,7 @@ export type Database = {
           id: string
           notes_customer: string | null
           notes_internal: string | null
+          quote_no: number
           quote_number: string
           site_address: string | null
           status: string | null
@@ -172,6 +173,7 @@ export type Database = {
           id?: string
           notes_customer?: string | null
           notes_internal?: string | null
+          quote_no?: number
           quote_number: string
           site_address?: string | null
           status?: string | null
@@ -193,6 +195,7 @@ export type Database = {
           id?: string
           notes_customer?: string | null
           notes_internal?: string | null
+          quote_no?: number
           quote_number?: string
           site_address?: string | null
           status?: string | null
