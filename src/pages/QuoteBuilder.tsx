@@ -516,6 +516,27 @@ export default function QuoteBuilder() {
             </CardContent>
           </Card>
 
+          {/* Sections */}
+          {sections.map((section, index) => (
+            <QuoteSection
+              key={section.id}
+              section={section}
+              sectionIndex={index}
+              films={films}
+              calculation={calculation.sections.find(s => s.id === section.id)}
+              onUpdateSection={updateSection}
+              onDeleteSection={deleteSection}
+              onAddWindow={addWindow}
+              onUpdateWindow={updateWindow}
+              onDeleteWindow={deleteWindow}
+            />
+          ))}
+
+          <Button onClick={addSection} variant="outline" className="w-full">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Section / Room
+          </Button>
+
           {/* Quote Settings */}
           <Card>
             <CardHeader>
@@ -618,27 +639,6 @@ export default function QuoteBuilder() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Sections */}
-          {sections.map((section, index) => (
-            <QuoteSection
-              key={section.id}
-              section={section}
-              sectionIndex={index}
-              films={films}
-              calculation={calculation.sections.find(s => s.id === section.id)}
-              onUpdateSection={updateSection}
-              onDeleteSection={deleteSection}
-              onAddWindow={addWindow}
-              onUpdateWindow={updateWindow}
-              onDeleteWindow={deleteWindow}
-            />
-          ))}
-
-          <Button onClick={addSection} variant="outline" className="w-full">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Section / Room
-          </Button>
         </div>
 
         {/* Totals Panel */}
