@@ -336,9 +336,9 @@ export default function Jobs() {
                                               <TooltipTrigger asChild>
                                                 <span className="cursor-help">{formatRollPlan(size.roll_plan)}</span>
                                               </TooltipTrigger>
-                                              <TooltipContent>
-                                                <p className="text-xs">Calculated with trim allowance of 0.5" per side</p>
-                                              </TooltipContent>
+                                  <TooltipContent>
+                                    <p className="text-xs">Calculated with cross-trim of 0.5" per side</p>
+                                  </TooltipContent>
                                             </Tooltip>
                                           </TooltipProvider>
                                         </TableCell>
@@ -405,9 +405,9 @@ export default function Jobs() {
                                                     <TooltipTrigger asChild>
                                                       <span className="cursor-help">{formatRollPlan(size.roll_plan)}</span>
                                                     </TooltipTrigger>
-                                                    <TooltipContent>
-                                                      <p className="text-xs">Calculated with trim allowance of 0.5" per side</p>
-                                                    </TooltipContent>
+                                          <TooltipContent>
+                                            <p className="text-xs">Calculated with cross-trim of 0.5" per side</p>
+                                          </TooltipContent>
                                                   </Tooltip>
                                                 </TooltipProvider>
                                               </TableCell>

@@ -32,70 +32,68 @@ interface RollPlan {
 }
 
 interface RollConfig {
-  roll_widths_in: number[];
-  allow_equal_splits: boolean;
-  trim_allowance_in: number;
-  allow_rotation: boolean;
+  roll_widths_in?: number[];
+  allow_equal_splits?: boolean;
+  cross_trim_in?: number;
+  allow_rotation?: boolean;
+  exact_base_match_has_no_cross_trim?: boolean;
 }
 
 const DEFAULT_ROLL_CONFIG: RollConfig = {
   roll_widths_in: [48, 60, 72],
   allow_equal_splits: true,
-  trim_allowance_in: 0.5,
+  cross_trim_in: 0.5,
   allow_rotation: true,
+  exact_base_match_has_no_cross_trim: true,
 };
 
-function buildSlitCatalog(rolls: number[] = [48, 60, 72]): [number, number][] {
+function buildSlitCatalog(bases: number[] = [48, 60, 72]): Array<{ slit: number; base: number }> {
   const map = new Map<number, number>();
-  for (const base of [...rolls].sort((a, b) => a - b)) {
+  for (const b of [...bases].sort((a, b) => a - b)) {
     for (let n = 1; n <= 6; n++) {
-      if (base % n === 0) {
-        const slit = base / n;
-        const curr = map.get(slit);
-        if (!curr || base < curr) map.set(slit, base);
+      if (b % n === 0) {
+        const slit = b / n;
+        const prev = map.get(slit);
+        if (!prev || b < prev) map.set(slit, b);
       }
     }
   }
-  return [...map.entries()].sort((a, b) => a[0] - b[0]);
+  return [...map.entries()].sort((a, b) => a[0] - b[0]).map(([slit, base]) => ({ slit, base }));
 }
 
-function pickRollForSize(
-  W: number,
-  H: number,
-  cfg: RollConfig = DEFAULT_ROLL_CONFIG
-): RollPlan | { error: string } {
-  const trim = cfg.trim_allowance_in ?? 0;
-  const candidates = buildSlitCatalog(cfg.roll_widths_in ?? [48, 60, 72]);
-  const dims = [
-    { need: W + 2 * trim, orient: 'width-across' as const },
-    ...(cfg.allow_rotation ? [{ need: H + 2 * trim, orient: 'height-across' as const }] : []),
-  ];
-  
-  let best: RollPlan | null = null;
-  
-  for (const d of dims) {
-    for (const [slit, base] of candidates) {
+function pickRollForSize(W: number, H: number, cfg: RollConfig = DEFAULT_ROLL_CONFIG): RollPlan | { error: string } {
+  const bases = (cfg.roll_widths_in ?? [48, 60, 72]).slice().sort((a, b) => a - b);
+  const crossTrim = cfg.cross_trim_in ?? 0;
+  const allowRot = cfg.allow_rotation !== false;
+
+  // 1) Exact base match wins
+  for (const [dim, orient] of [[W, 'width-across'] as const, [H, 'height-across'] as const]) {
+    if (bases.includes(dim)) {
+      return { slit_width_in: dim, base_roll_in: dim as 48 | 60 | 72, orientation: orient, waste_in: 0, note: 'Exact base match' };
+    }
+  }
+
+  // 2) 36" fallback
+  for (const [dim, orient] of [[W, 'width-across'] as const, [H, 'height-across'] as const]) {
+    if (dim === 36) {
+      return { slit_width_in: 36, base_roll_in: 72, orientation: orient, waste_in: 0, note: '36-inch fallback (72→36)' };
+    }
+  }
+
+  // 3) Minimal-waste
+  const candidates = buildSlitCatalog(bases);
+  type Plan = { slit_width_in: number; base_roll_in: 48 | 60 | 72; orientation: 'width-across' | 'height-across'; waste_in: number; note?: string };
+  let best: Plan | null = null;
+
+  const orientations: Array<{ need: number; orient: Plan['orientation'] }> = [{ need: W + 2 * crossTrim, orient: 'width-across' }];
+  if (allowRot) orientations.push({ need: H + 2 * crossTrim, orient: 'height-across' });
+
+  for (const d of orientations) {
+    for (const { slit, base } of candidates) {
       if (slit + 1e-6 >= d.need) {
         const waste = +(slit - d.need).toFixed(2);
-        const plan: RollPlan = {
-          slit_width_in: slit,
-          base_roll_in: base as 48 | 60 | 72,
-          orientation: d.orient,
-          waste_in: waste,
-        };
-        
-        if (slit !== base) {
-          plan.note = `${base}" roll → ${slit}" slit`;
-        }
-        
-        if (
-          !best ||
-          plan.waste_in < best.waste_in ||
-          (plan.waste_in === best.waste_in && plan.base_roll_in < best.base_roll_in) ||
-          (plan.waste_in === best.waste_in &&
-            plan.base_roll_in === best.base_roll_in &&
-            plan.orientation === 'width-across')
-        ) {
+        const plan: Plan = { slit_width_in: slit, base_roll_in: base as 48 | 60 | 72, orientation: d.orient, waste_in: waste, note: slit !== base ? `Minimal waste (${base}→${slit})` : undefined };
+        if (!best || plan.waste_in < best.waste_in || (plan.waste_in === best.waste_in && plan.base_roll_in < best.base_roll_in) || (plan.waste_in === best.waste_in && plan.base_roll_in === best.base_roll_in && plan.slit_width_in === plan.base_roll_in) || (plan.waste_in === best.waste_in && plan.base_roll_in === best.base_roll_in && plan.slit_width_in === best.slit_width_in && plan.orientation === 'width-across')) {
           best = plan;
         }
         break;
@@ -109,14 +107,11 @@ function pickRollForSize(
 function formatRollPlan(plan: RollPlan | { error: string } | undefined): string {
   if (!plan) return 'N/A';
   if ('error' in plan) return plan.error;
-  
   const { slit_width_in, base_roll_in, orientation, waste_in, note } = plan;
-  
-  if (note) {
-    return `${note} (${orientation}, waste ${waste_in.toFixed(2)}")`;
-  } else {
-    return `${base_roll_in}" roll (exact fit, ${orientation})`;
-  }
+  if (note === 'Exact base match') return `${base_roll_in}" roll (exact fit, ${orientation})`;
+  if (note === '36-inch fallback (72→36)') return `72" roll → 36" slit (${orientation})`;
+  if (slit_width_in !== base_roll_in) return `${base_roll_in}" roll → ${slit_width_in}" slit (${orientation}, waste ${waste_in.toFixed(2)}")`;
+  return `${base_roll_in}" roll (${orientation}, waste ${waste_in.toFixed(2)}")`;
 }
 
 // Color manipulation helpers
