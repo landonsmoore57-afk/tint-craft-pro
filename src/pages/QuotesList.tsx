@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Eye, Search, Download, X } from "lucide-react";
 import { format } from "date-fns";
+import html2pdf from "html2pdf.js";
 
 interface Quote {
   id: string;
@@ -122,23 +123,24 @@ export default function QuotesList() {
 
       if (error) throw error;
 
-      // Open HTML in new window for printing (same as single quote PDF)
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(data);
-        printWindow.document.close();
-        
-        // Trigger print dialog after content loads
-        printWindow.onload = () => {
-          setTimeout(() => {
-            printWindow.print();
-          }, 250);
-        };
-      }
+      // Convert HTML to PDF and download
+      const element = document.createElement('div');
+      element.innerHTML = data;
+      element.style.width = '8.5in';
+      
+      const opt = {
+        margin: 0.5,
+        filename: `window-summary-batch-${Date.now()}.pdf`,
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' as const }
+      };
+
+      await html2pdf().set(opt).from(element).save();
 
       toast({
-        title: "Export ready",
-        description: `Window summary for ${selectedIds.size} quotes - save as PDF from print dialog`,
+        title: "Export successful",
+        description: `Downloaded window summary for ${selectedIds.size} quotes`,
       });
 
       setSelectedIds(new Set());
