@@ -18,6 +18,8 @@ interface WindowSizeRollup {
   height_in: number;
   area_sqft_each: number;
   total_qty: number;
+  film_id: string | null;
+  film_display: string;
   roll_plan?: RollPlan | { error: string };
 }
 
@@ -132,8 +134,13 @@ Deno.serve(async (req) => {
     }
 
     const quoteIds = [...new Set(assignments.map(a => a.quote_id))];
-    const { data: quotes, error: quotesError } = await supabaseClient.from('quotes').select(`id, quote_no, customer_name, customer_email, customer_phone, site_address, status, global_film_id, sections (id, name, room_id, custom_room_name, windows (id, width_in, height_in, quantity))`).in('id', quoteIds);
+    const { data: quotes, error: quotesError } = await supabaseClient.from('quotes').select(`id, quote_no, customer_name, customer_email, customer_phone, site_address, status, global_film_id, sections (id, name, room_id, custom_room_name, section_film_id, windows (id, width_in, height_in, quantity, window_film_id))`).in('id', quoteIds);
     if (quotesError) throw quotesError;
+
+    // Fetch all films for resolving
+    const { data: films, error: filmsError } = await supabaseClient.from('films').select('id, brand, series, name, vlt');
+    if (filmsError) throw filmsError;
+    const filmsMap = new Map(films?.map(f => [f.id, f]) || []);
 
     const { data: rooms, error: roomsError } = await supabaseClient.from('rooms').select('id, name');
     if (roomsError) throw roomsError;
@@ -141,7 +148,13 @@ Deno.serve(async (req) => {
 
     const rollConfig = DEFAULT_ROLL_CONFIG;
     const quotesWithCalc = quotes?.map(quote => {
-      const sizeMap = new Map<string, { w: number; h: number; qty: number }>();
+      // Helper to resolve film (window > section > global)
+      const resolveFilm = (win: any, section: any) => {
+        const filmId = win.window_film_id || section.section_film_id || quote.global_film_id;
+        return filmId ? filmsMap.get(filmId) : null;
+      };
+
+      const sizeMap = new Map<string, { w: number; h: number; qty: number; film_id: string | null; film_display: string }>();
       const roomsMapCalc = new Map<string, Map<string, { w: number; h: number; qty: number }>>();
       const roomTotals = new Map<string, number>();
 
@@ -152,18 +165,40 @@ Deno.serve(async (req) => {
 
         for (const win of (section.windows || [])) {
           const qty = Math.max(1, win.quantity || 1);
-          const key = `${win.width_in}x${win.height_in}`;
-          const item = sizeMap.get(key) ?? { w: win.width_in, h: win.height_in, qty: 0 };
+          
+          // Resolve film for this window
+          const film = resolveFilm(win, section);
+          const film_id = film?.id ?? null;
+          const film_display = film 
+            ? `${film.brand} ${film.series} ${film.name}${film.vlt != null ? ` ${film.vlt}%` : ''}`
+            : 'No Film';
+          
+          const key = `${win.width_in}x${win.height_in}|${film_id ?? 'none'}`;
+          const item = sizeMap.get(key) ?? { w: win.width_in, h: win.height_in, qty: 0, film_id, film_display };
           item.qty += qty;
           sizeMap.set(key, item);
-          const roomItem = roomSizeMap.get(key) ?? { w: win.width_in, h: win.height_in, qty: 0 };
+          
+          const roomKey = `${win.width_in}x${win.height_in}`;
+          const roomItem = roomSizeMap.get(roomKey) ?? { w: win.width_in, h: win.height_in, qty: 0 };
           roomItem.qty += qty;
-          roomSizeMap.set(key, roomItem);
+          roomSizeMap.set(roomKey, roomItem);
           roomTotals.set(roomLabel, (roomTotals.get(roomLabel) ?? 0) + qty);
         }
       }
 
-      const window_summary: WindowSizeRollup[] = [...sizeMap.values()].map(i => ({ width_in: i.w, height_in: i.h, area_sqft_each: +((i.w * i.h) / 144).toFixed(2), total_qty: i.qty, roll_plan: pickRollForSize(i.w, i.h, rollConfig) })).sort((a, b) => b.area_sqft_each - a.area_sqft_each || (a.width_in * a.height_in) - (b.width_in * b.height_in));
+      const window_summary: WindowSizeRollup[] = [...sizeMap.values()].map(i => ({ 
+        width_in: i.w, 
+        height_in: i.h, 
+        area_sqft_each: +((i.w * i.h) / 144).toFixed(2), 
+        total_qty: i.qty,
+        film_id: i.film_id,
+        film_display: i.film_display,
+        roll_plan: pickRollForSize(i.w, i.h, rollConfig) 
+      })).sort((a, b) => 
+        a.film_display.localeCompare(b.film_display) || 
+        b.area_sqft_each - a.area_sqft_each || 
+        (a.width_in * a.height_in) - (b.width_in * b.height_in)
+      );
 
       const rooms_summary: RoomSizeRollup[] = [...roomsMapCalc.entries()].map(([room, sizeMap]) => {
         const sizes = [...sizeMap.values()].map(i => ({ width_in: i.w, height_in: i.h, area_sqft_each: +((i.w * i.h) / 144).toFixed(2), total_qty: i.qty, roll_plan: pickRollForSize(i.w, i.h, rollConfig) })).sort((a, b) => b.area_sqft_each - a.area_sqft_each || (a.width_in * a.height_in) - (b.width_in * b.height_in));

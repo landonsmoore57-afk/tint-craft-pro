@@ -33,19 +33,49 @@ Deno.serve(async (req) => {
     );
 
     const searchPattern = `%${query}%`;
+    const lowerQuery = query.toLowerCase().trim();
+    
+    // Check if query is numeric (for VLT search)
+    const numericQuery = parseFloat(query);
+    const isNumeric = !isNaN(numericQuery);
+    
+    // Check if searching for security films
+    const isSecuritySearch = lowerQuery.includes('security');
     
     let queryBuilder = supabase
       .from('films')
-      .select('id, brand, series, name, vlt, sku, active, cost_per_sqft, sell_per_sqft, security_film, notes')
-      .or(`brand.ilike.${searchPattern},series.ilike.${searchPattern},name.ilike.${searchPattern},sku.ilike.${searchPattern}`)
+      .select('id, brand, series, name, vlt, sku, active, cost_per_sqft, sell_per_sqft, security_film, notes');
+    
+    // Build comprehensive search conditions
+    const searchConditions = [
+      `brand.ilike.${searchPattern}`,
+      `series.ilike.${searchPattern}`,
+      `name.ilike.${searchPattern}`,
+      `sku.ilike.${searchPattern}`,
+      `notes.ilike.${searchPattern}`
+    ];
+    
+    // Add VLT search if numeric
+    if (isNumeric) {
+      searchConditions.push(`vlt.eq.${Math.round(numericQuery)}`);
+    }
+    
+    queryBuilder = queryBuilder.or(searchConditions.join(','));
+    
+    // Filter by security_film if searching for "security"
+    if (isSecuritySearch) {
+      queryBuilder = queryBuilder.eq('security_film', true);
+    }
+    
+    if (!includeInactive) {
+      queryBuilder = queryBuilder.eq('active', true);
+    }
+    
+    queryBuilder = queryBuilder
       .order('brand', { ascending: true })
       .order('series', { ascending: true })
       .order('name', { ascending: true })
       .limit(limit);
-
-    if (!includeInactive) {
-      queryBuilder = queryBuilder.eq('active', true);
-    }
 
     const { data, error } = await queryBuilder;
 

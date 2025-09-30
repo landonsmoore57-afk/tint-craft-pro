@@ -18,6 +18,8 @@ interface WindowSizeRollup {
   height_in: number;
   total_qty: number;
   area_sqft_each: number;
+  film_id: string | null;
+  film_display: string;
   roll_plan?: RollPlan | { error: string };
 }
 
@@ -164,16 +166,19 @@ Deno.serve(async (req) => {
         customer_phone,
         site_address,
         status,
+        global_film_id,
         sections (
           id,
           name,
           room_id,
           custom_room_name,
+          section_film_id,
           windows (
             id,
             width_in,
             height_in,
-            quantity
+            quantity,
+            window_film_id
           )
         )
       `)
@@ -196,6 +201,18 @@ Deno.serve(async (req) => {
       throw roomsError;
     }
 
+    // Fetch all films for resolving
+    const { data: films, error: filmsError } = await supabase
+      .from('films')
+      .select('id, brand, series, name, vlt');
+
+    if (filmsError) {
+      console.error('Error fetching films:', filmsError);
+      throw filmsError;
+    }
+
+    const filmsMap = new Map(films?.map(f => [f.id, f]) || []);
+
     if (!quotes || quotes.length === 0) {
       return new Response(
         JSON.stringify({ error: 'No valid quotes found' }),
@@ -205,14 +222,27 @@ Deno.serve(async (req) => {
 
     // Calculate window rollup for each quote
     const quotesWithRollup = quotes.map(quote => {
-      const sizeMap = new Map<string, { w: number; h: number; qty: number }>();
+      // Helper to resolve film (window > section > global)
+      const resolveFilm = (win: any, section: any) => {
+        const filmId = win.window_film_id || section.section_film_id || quote.global_film_id;
+        return filmId ? filmsMap.get(filmId) : null;
+      };
+
+      const sizeMap = new Map<string, { w: number; h: number; qty: number; film_id: string | null; film_display: string }>();
       
       if (quote.sections) {
         for (const section of quote.sections) {
           if (section.windows) {
             for (const win of section.windows) {
-              const key = `${win.width_in}x${win.height_in}`;
-              const item = sizeMap.get(key) ?? { w: win.width_in, h: win.height_in, qty: 0 };
+              // Resolve film for this window
+              const film = resolveFilm(win, section);
+              const film_id = film?.id ?? null;
+              const film_display = film 
+                ? `${film.brand} ${film.series} ${film.name}${film.vlt != null ? ` ${film.vlt}%` : ''}`
+                : 'No Film';
+              
+              const key = `${win.width_in}x${win.height_in}|${film_id ?? 'none'}`;
+              const item = sizeMap.get(key) ?? { w: win.width_in, h: win.height_in, qty: 0, film_id, film_display };
               item.qty += Math.max(1, win.quantity || 1);
               sizeMap.set(key, item);
             }
@@ -227,9 +257,15 @@ Deno.serve(async (req) => {
           height_in: i.h,
           total_qty: i.qty,
           area_sqft_each: +((i.w * i.h) / 144).toFixed(2),
+          film_id: i.film_id,
+          film_display: i.film_display,
           roll_plan: pickRollForSize(i.w, i.h, rollConfig),
         }))
-        .sort((a, b) => b.area_sqft_each - a.area_sqft_each || (a.width_in * a.height_in) - (b.width_in * b.height_in));
+        .sort((a, b) => 
+          a.film_display.localeCompare(b.film_display) || 
+          b.area_sqft_each - a.area_sqft_each || 
+          (a.width_in * a.height_in) - (b.width_in * b.height_in)
+        );
 
       // Calculate rooms summary
       const roomsMap = new Map<string, Map<string, { w: number; h: number; qty: number }>>();
@@ -344,6 +380,7 @@ function generateBatchPDFHTML(quotes: any[]): string {
           <table style="width: 100%; border-collapse: collapse; background: white;">
             <thead>
               <tr style="background: #0891B2; color: white;">
+                <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">Film</th>
                 <th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">Size (W×H in)</th>
                 <th style="padding: 12px; text-align: right; border: 1px solid #dee2e6;">Area (sq ft each)</th>
                 <th style="padding: 12px; text-align: right; border: 1px solid #dee2e6;">Qty</th>
@@ -353,6 +390,7 @@ function generateBatchPDFHTML(quotes: any[]): string {
             <tbody>
               ${quote.window_size_rollup.map((item: WindowSizeRollup, idx: number) => `
                 <tr style="background: ${idx % 2 === 0 ? '#f8f9fa' : 'white'};">
+                  <td style="padding: 10px; border: 1px solid #dee2e6; font-size: 12px; font-weight: 500;">${item.film_display}</td>
                   <td style="padding: 10px; border: 1px solid #dee2e6; font-family: monospace;">${item.width_in}×${item.height_in}</td>
                   <td style="padding: 10px; text-align: right; border: 1px solid #dee2e6; font-family: monospace;">${item.area_sqft_each}</td>
                   <td style="padding: 10px; text-align: right; border: 1px solid #dee2e6; font-weight: 600;">${item.total_qty}</td>

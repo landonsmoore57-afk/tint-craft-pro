@@ -95,6 +95,8 @@ export interface WindowSizeRollup {
   height_in: number;
   total_qty: number;
   area_sqft_each: number;
+  film_id: string | null;
+  film_display: string;
   roll_plan?: RollPlan | { error: string };
 }
 
@@ -302,12 +304,16 @@ export function calculateQuote(
     validation_errors.push('Materials pricing missing for Caulk');
   }
 
-  // Window size rollup
-  const sizeMap = new Map<string, { w: number; h: number; qty: number }>();
+  // Window size rollup - grouped by size AND film
+  const sizeMap = new Map<string, { w: number; h: number; qty: number; film_id: string | null; film_display: string }>();
   for (const section of calculatedSections) {
     for (const win of section.windows) {
-      const key = `${win.width_in}x${win.height_in}`;
-      const item = sizeMap.get(key) ?? { w: win.width_in, h: win.height_in, qty: 0 };
+      const film_id = win.resolved_film?.id ?? null;
+      const film_display = win.resolved_film 
+        ? `${win.resolved_film.brand} ${win.resolved_film.series} ${win.resolved_film.name}${win.resolved_film.vlt != null ? ` ${win.resolved_film.vlt}%` : ''}`
+        : 'No Film';
+      const key = `${win.width_in}x${win.height_in}|${film_id ?? 'none'}`;
+      const item = sizeMap.get(key) ?? { w: win.width_in, h: win.height_in, qty: 0, film_id, film_display };
       item.qty += Math.max(1, win.quantity || 1);
       sizeMap.set(key, item);
     }
@@ -318,9 +324,16 @@ export function calculateQuote(
       height_in: i.h,
       total_qty: i.qty,
       area_sqft_each: +((i.w * i.h) / 144).toFixed(2),
+      film_id: i.film_id,
+      film_display: i.film_display,
       roll_plan: pickRollForSize(i.w, i.h, rollConfig),
     }))
-    .sort((a, b) => b.area_sqft_each - a.area_sqft_each || (a.width_in * a.height_in) - (b.width_in * b.height_in));
+    .sort((a, b) => 
+      // Sort by film first, then by area
+      a.film_display.localeCompare(b.film_display) || 
+      b.area_sqft_each - a.area_sqft_each || 
+      (a.width_in * a.height_in) - (b.width_in * b.height_in)
+    );
 
   // Rooms summary rollup
   const roomsMap = new Map<string, Map<string, { w: number; h: number; qty: number }>>();
