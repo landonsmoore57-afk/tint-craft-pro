@@ -13,7 +13,8 @@ import { Switch } from "@/components/ui/switch";
 import { QuoteSection } from "@/components/quote/QuoteSection";
 import { QuoteSummariesPanel } from "@/components/quote/QuoteSummariesPanel";
 import { WindowSummary } from "@/components/quote/WindowSummary";
-import { calculateQuote, FilmData, MaterialData, SectionData, WindowData, formatCurrency } from "@/lib/quoteCalculations";
+import { RoomsSummary } from "@/components/quote/RoomsSummary";
+import { calculateQuote, FilmData, MaterialData, RoomData, SectionData, WindowData, formatCurrency } from "@/lib/quoteCalculations";
 import { format } from "date-fns";
 
 export default function QuoteBuilder() {
@@ -23,6 +24,7 @@ export default function QuoteBuilder() {
   const [loading, setLoading] = useState(false);
   const [films, setFilms] = useState<FilmData[]>([]);
   const [materials, setMaterials] = useState<MaterialData[]>([]);
+  const [rooms, setRooms] = useState<RoomData[]>([]);
 
   // Quote header data
   const [customerName, setCustomerName] = useState("");
@@ -57,6 +59,7 @@ export default function QuoteBuilder() {
   useEffect(() => {
     fetchFilms();
     fetchMaterials();
+    fetchRooms();
     if (id && id !== "new") {
       loadQuote(id);
     }
@@ -93,6 +96,24 @@ export default function QuoteBuilder() {
     } catch (error: any) {
       toast({
         title: "Error fetching materials",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchRooms = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("rooms")
+        .select("id, name")
+        .order("name");
+
+      if (error) throw error;
+      setRooms(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error fetching rooms",
         description: error.message,
         variant: "destructive",
       });
@@ -442,6 +463,7 @@ export default function QuoteBuilder() {
     },
     films,
     materials,
+    rooms,
     parseFloat(depositPercent) || 0
   );
 
@@ -664,6 +686,7 @@ export default function QuoteBuilder() {
             onDownloadPDF={downloadPDF}
           />
           <WindowSummary rollup={calculation.window_size_rollup} />
+          <RoomsSummary rollup={calculation.rooms_summary} />
         </div>
       </div>
     </div>

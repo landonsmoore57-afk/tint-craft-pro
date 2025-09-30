@@ -89,12 +89,31 @@ export interface WindowSizeRollup {
   area_sqft_each: number;
 }
 
+export interface RoomSize {
+  width_in: number;
+  height_in: number;
+  area_sqft_each: number;
+  total_qty: number;
+}
+
+export interface RoomSizeRollup {
+  room_label: string;
+  total_windows_qty: number;
+  sizes: RoomSize[];
+}
+
+export interface RoomData {
+  id: string;
+  name: string;
+}
+
 export interface QuoteCalculationResult {
   sections: SectionCalculation[];
   windows_subtotal: number;
   total_linear_feet_security: number;
   summaries: QuoteSummary[];
   window_size_rollup: WindowSizeRollup[];
+  rooms_summary: RoomSizeRollup[];
   validation_errors: string[];
 }
 
@@ -102,6 +121,7 @@ export function calculateQuote(
   quoteData: QuoteData,
   films: FilmData[],
   materials: MaterialData[],
+  rooms: RoomData[] = [],
   deposit_percent: number = 0
 ): QuoteCalculationResult {
   const validation_errors: string[] = [];
@@ -290,12 +310,71 @@ export function calculateQuote(
     }))
     .sort((a, b) => b.area_sqft_each - a.area_sqft_each || (a.width_in * a.height_in) - (b.width_in * b.height_in));
 
+  // Rooms summary rollup
+  const roomsMap = new Map<string, Map<string, { w: number; h: number; qty: number }>>();
+  const roomTotals = new Map<string, number>();
+  
+  for (const section of quoteData.sections) {
+    // Resolve room label: custom_room_name > rooms.name > section.name > 'Unassigned'
+    let roomLabel = 'Unassigned';
+    if (section.custom_room_name) {
+      roomLabel = section.custom_room_name;
+    } else if (section.room_id) {
+      const room = rooms.find(r => r.id === section.room_id);
+      roomLabel = room?.name || section.name || 'Unassigned';
+    } else if (section.name) {
+      roomLabel = section.name;
+    }
+
+    if (!roomsMap.has(roomLabel)) {
+      roomsMap.set(roomLabel, new Map());
+    }
+    const sizeMap = roomsMap.get(roomLabel)!;
+
+    for (const win of section.windows) {
+      const qty = Math.max(1, win.quantity || 1);
+      const key = `${win.width_in}x${win.height_in}`;
+      const item = sizeMap.get(key) ?? { w: win.width_in, h: win.height_in, qty: 0 };
+      item.qty += qty;
+      sizeMap.set(key, item);
+
+      roomTotals.set(roomLabel, (roomTotals.get(roomLabel) ?? 0) + qty);
+    }
+  }
+
+  const rooms_summary: RoomSizeRollup[] = [...roomsMap.entries()]
+    .map(([room, sizeMap]) => {
+      const sizes = [...sizeMap.values()]
+        .map(i => ({
+          width_in: i.w,
+          height_in: i.h,
+          area_sqft_each: +((i.w * i.h) / 144).toFixed(2),
+          total_qty: i.qty,
+        }))
+        .sort((a, b) =>
+          b.area_sqft_each - a.area_sqft_each ||
+          (a.width_in * a.height_in) - (b.width_in * b.height_in)
+        );
+
+      return {
+        room_label: room,
+        total_windows_qty: roomTotals.get(room) ?? 0,
+        sizes,
+      };
+    })
+    .sort((a, b) => {
+      if (a.room_label === 'Unassigned') return 1;
+      if (b.room_label === 'Unassigned') return -1;
+      return a.room_label.localeCompare(b.room_label, undefined, { numeric: true });
+    });
+
   return {
     sections: calculatedSections,
     windows_subtotal,
     total_linear_feet_security,
     summaries,
     window_size_rollup,
+    rooms_summary,
     validation_errors,
   };
 }

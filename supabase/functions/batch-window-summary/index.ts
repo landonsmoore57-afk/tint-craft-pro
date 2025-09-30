@@ -12,6 +12,19 @@ interface WindowSizeRollup {
   area_sqft_each: number;
 }
 
+interface RoomSize {
+  width_in: number;
+  height_in: number;
+  area_sqft_each: number;
+  total_qty: number;
+}
+
+interface RoomSizeRollup {
+  room_label: string;
+  total_windows_qty: number;
+  sizes: RoomSize[];
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -52,6 +65,9 @@ Deno.serve(async (req) => {
         status,
         sections (
           id,
+          name,
+          room_id,
+          custom_room_name,
           windows (
             id,
             width_in,
@@ -66,6 +82,17 @@ Deno.serve(async (req) => {
     if (quotesError) {
       console.error('Error fetching quotes:', quotesError);
       throw quotesError;
+    }
+
+    // Fetch rooms
+    const { data: rooms, error: roomsError } = await supabase
+      .from('rooms')
+      .select('id, name')
+      .order('name');
+
+    if (roomsError) {
+      console.error('Error fetching rooms:', roomsError);
+      throw roomsError;
     }
 
     if (!quotes || quotes.length === 0) {
@@ -101,9 +128,72 @@ Deno.serve(async (req) => {
         }))
         .sort((a, b) => b.area_sqft_each - a.area_sqft_each || (a.width_in * a.height_in) - (b.width_in * b.height_in));
 
+      // Calculate rooms summary
+      const roomsMap = new Map<string, Map<string, { w: number; h: number; qty: number }>>();
+      const roomTotals = new Map<string, number>();
+      
+      if (quote.sections) {
+        for (const section of quote.sections) {
+          // Resolve room label: custom_room_name > rooms.name > section.name > 'Unassigned'
+          let roomLabel = 'Unassigned';
+          if (section.custom_room_name) {
+            roomLabel = section.custom_room_name;
+          } else if (section.room_id) {
+            const room = rooms?.find((r: any) => r.id === section.room_id);
+            roomLabel = room?.name || section.name || 'Unassigned';
+          } else if (section.name) {
+            roomLabel = section.name;
+          }
+
+          if (!roomsMap.has(roomLabel)) {
+            roomsMap.set(roomLabel, new Map());
+          }
+          const roomSizeMap = roomsMap.get(roomLabel)!;
+
+          if (section.windows) {
+            for (const win of section.windows) {
+              const qty = Math.max(1, win.quantity || 1);
+              const key = `${win.width_in}x${win.height_in}`;
+              const item = roomSizeMap.get(key) ?? { w: win.width_in, h: win.height_in, qty: 0 };
+              item.qty += qty;
+              roomSizeMap.set(key, item);
+
+              roomTotals.set(roomLabel, (roomTotals.get(roomLabel) ?? 0) + qty);
+            }
+          }
+        }
+      }
+
+      const roomsRollup: RoomSizeRollup[] = [...roomsMap.entries()]
+        .map(([room, roomSizeMap]) => {
+          const sizes = [...roomSizeMap.values()]
+            .map(i => ({
+              width_in: i.w,
+              height_in: i.h,
+              area_sqft_each: +((i.w * i.h) / 144).toFixed(2),
+              total_qty: i.qty,
+            }))
+            .sort((a, b) =>
+              b.area_sqft_each - a.area_sqft_each ||
+              (a.width_in * a.height_in) - (b.width_in * b.height_in)
+            );
+
+          return {
+            room_label: room,
+            total_windows_qty: roomTotals.get(room) ?? 0,
+            sizes,
+          };
+        })
+        .sort((a, b) => {
+          if (a.room_label === 'Unassigned') return 1;
+          if (b.room_label === 'Unassigned') return -1;
+          return a.room_label.localeCompare(b.room_label, undefined, { numeric: true });
+        });
+
       return {
         ...quote,
         window_size_rollup: rollup,
+        rooms_summary: roomsRollup,
       };
     });
 
@@ -192,6 +282,40 @@ function generateBatchPDFHTML(quotes: any[]): string {
           </table>
         ` : '<p style="color: #6c757d;">No windows in this quote</p>'}
       </div>
+
+      ${quote.rooms_summary && quote.rooms_summary.length > 0 ? `
+      <div style="margin-top: 24px;">
+        <h3 style="color: #0891B2; margin-bottom: 15px;">Rooms Summary</h3>
+        ${quote.rooms_summary.map((room: RoomSizeRollup, roomIdx: number) => `
+          <div style="margin-bottom: ${roomIdx < quote.rooms_summary.length - 1 ? '20px' : '0'};">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 8px 12px; background: #e0f2fe; border-radius: 6px;">
+              <span style="font-weight: 600; color: #0891B2;">${room.room_label}</span>
+              <span style="background: #0891B2; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                ${room.total_windows_qty} ${room.total_windows_qty === 1 ? 'window' : 'windows'}
+              </span>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; background: white; margin-bottom: 12px;">
+              <thead>
+                <tr style="background: #e0f2fe;">
+                  <th style="padding: 10px; text-align: left; border: 1px solid #dee2e6; font-size: 11px; text-transform: uppercase;">Size (W×H in)</th>
+                  <th style="padding: 10px; text-align: right; border: 1px solid #dee2e6; font-size: 11px; text-transform: uppercase;">Area (sq ft each)</th>
+                  <th style="padding: 10px; text-align: right; border: 1px solid #dee2e6; font-size: 11px; text-transform: uppercase;">Qty</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${room.sizes.map((size: RoomSize, sizeIdx: number) => `
+                  <tr style="background: ${sizeIdx % 2 === 0 ? '#f8f9fa' : 'white'};">
+                    <td style="padding: 8px 10px; border: 1px solid #dee2e6; font-family: monospace;">${size.width_in}×${size.height_in}</td>
+                    <td style="padding: 8px 10px; text-align: right; border: 1px solid #dee2e6; font-family: monospace;">${size.area_sqft_each}</td>
+                    <td style="padding: 8px 10px; text-align: right; border: 1px solid #dee2e6; font-weight: 600;">${size.total_qty}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `).join('')}
+      </div>
+      ` : ''}
     </div>
   `).join('');
 
