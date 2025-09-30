@@ -45,7 +45,7 @@ interface RollConfig {
 const DEFAULT_ROLL_CONFIG: RollConfig = {
   roll_widths_in: [48, 60, 72],
   allow_equal_splits: true,
-  trim_allowance_in: 0.5,
+  trim_allowance_in: 1.0,
   allow_rotation: true,
 };
 

@@ -8,16 +8,27 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfWeek, addWeeks } from "date-fns";
 import { Calendar as CalendarIcon, Trash2, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatRollPlan } from "@/lib/quoteCalculations";
+
+interface RollPlan {
+  slit_width_in: number;
+  base_roll_in: 48 | 60 | 72;
+  orientation: 'width-across' | 'height-across';
+  waste_in: number;
+  note?: string;
+}
 
 interface WindowSize {
   width_in: number;
   height_in: number;
   area_sqft_each: number;
   total_qty: number;
+  roll_plan?: RollPlan | { error: string };
 }
 
 interface RoomSize {
@@ -25,6 +36,7 @@ interface RoomSize {
   height_in: number;
   area_sqft_each: number;
   total_qty: number;
+  roll_plan?: RollPlan | { error: string };
 }
 
 interface RoomSummary {
@@ -302,6 +314,7 @@ export default function Jobs() {
                                     <TableHead className="font-semibold">Size (W×H in)</TableHead>
                                     <TableHead className="text-right font-semibold">Area (sq ft)</TableHead>
                                     <TableHead className="text-right font-semibold">Qty</TableHead>
+                                    <TableHead className="font-semibold">Roll Size</TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -317,11 +330,23 @@ export default function Jobs() {
                                         <TableCell className="text-right font-semibold">
                                           {size.total_qty}
                                         </TableCell>
+                                        <TableCell className="text-sm">
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <span className="cursor-help">{formatRollPlan(size.roll_plan)}</span>
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                <p className="text-xs">Calculated with trim allowance of 1" per side</p>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        </TableCell>
                                       </TableRow>
                                     ))
                                   ) : (
                                     <TableRow>
-                                      <TableCell colSpan={3} className="text-center text-muted-foreground">
+                                      <TableCell colSpan={4} className="text-center text-muted-foreground">
                                         No windows
                                       </TableCell>
                                     </TableRow>
@@ -359,6 +384,7 @@ export default function Jobs() {
                                             <TableHead className="font-semibold">Size (W×H in)</TableHead>
                                             <TableHead className="text-right font-semibold">Area (sq ft)</TableHead>
                                             <TableHead className="text-right font-semibold">Qty</TableHead>
+                                            <TableHead className="font-semibold">Roll Size</TableHead>
                                           </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -372,6 +398,18 @@ export default function Jobs() {
                                               </TableCell>
                                               <TableCell className="text-right font-semibold">
                                                 {size.total_qty}
+                                              </TableCell>
+                                              <TableCell className="text-sm">
+                                                <TooltipProvider>
+                                                  <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                      <span className="cursor-help">{formatRollPlan(size.roll_plan)}</span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                      <p className="text-xs">Calculated with trim allowance of 1" per side</p>
+                                                    </TooltipContent>
+                                                  </Tooltip>
+                                                </TooltipProvider>
                                               </TableCell>
                                             </TableRow>
                                           ))}
