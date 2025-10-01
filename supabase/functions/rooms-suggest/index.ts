@@ -54,12 +54,14 @@ Deno.serve(async (req) => {
     const remainingSlots = limit - (featuredRooms?.length || 0);
     let topUsageRooms: any[] = [];
     
-    // Fill remaining slots with usage-ranked rooms
+    // Fill remaining slots with usage-ranked rooms (excluding featured ones)
     if (remainingSlots > 0) {
+      const featuredIds = (featuredRooms || []).map(r => r.id);
+      
       const { data: usageRooms, error: usageError } = await supabase
         .from('room_usage_ranking')
         .select('id, name, is_common')
-        .eq('is_featured', false)
+        .not('id', 'in', `(${featuredIds.join(',') || 'null'})`)
         .order('is_common', { ascending: false })
         .order('usage_score', { ascending: false })
         .order('name', { ascending: true })

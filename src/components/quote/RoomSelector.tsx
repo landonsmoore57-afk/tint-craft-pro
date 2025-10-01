@@ -105,11 +105,11 @@ export function RoomSelector({ value, onChange }: RoomSelectorProps) {
   const createRoom = async (name: string) => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("rooms")
-        .insert([{ name, is_common: false }])
-        .select()
-        .single();
+      
+      // Use edge function to bypass RLS for PIN-based auth
+      const { data, error } = await supabase.functions.invoke('rooms-create', {
+        body: { name }
+      });
 
       if (error) throw error;
 
@@ -123,7 +123,8 @@ export function RoomSelector({ value, onChange }: RoomSelectorProps) {
         description: `"${name}" added to room library`,
       });
     } catch (error: any) {
-      if (error.code === "23505") {
+      const status = error?.status || error?.context?.status;
+      if (status === 409 || error.message?.includes('duplicate')) {
         toast({
           title: "Room already exists",
           description: "A room with this name already exists",
