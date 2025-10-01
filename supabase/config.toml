@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.list-jobs]
 verify_jwt = false
+
+[functions.fetch-quotes]
+verify_jwt = false

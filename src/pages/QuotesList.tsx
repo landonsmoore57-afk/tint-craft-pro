@@ -47,14 +47,22 @@ export default function QuotesList() {
 
   const fetchQuotes = async () => {
     try {
-      const { data, error } = await supabase
-        .from("quotes")
-        .select("*")
-        .order("quote_no", { ascending: false });
+      // Use edge function with service role to bypass RLS for PIN-based auth
+      const supabaseUrl = 'https://jiyeljjdpyawaikgpkqu.supabase.co';
+      const response = await fetch(`${supabaseUrl}/functions/v1/fetch-quotes`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error('Failed to fetch quotes');
+      }
+
+      const data = await response.json();
       setQuotes(data || []);
     } catch (error: any) {
+      console.error('Error fetching quotes:', error);
       toast({
         title: "Error fetching quotes",
         description: error.message,
