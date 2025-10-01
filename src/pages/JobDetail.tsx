@@ -48,13 +48,20 @@ interface JobDetail {
 }
 
 export default function JobDetail() {
+  console.log('JobDetail component mounting...');
   const { assignmentId } = useParams();
+  console.log('Assignment ID from params:', assignmentId);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [job, setJob] = useState<JobDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('useEffect running with assignmentId:', assignmentId);
+    if (!assignmentId) {
+      console.error('No assignment ID provided!');
+      return;
+    }
     fetchJobDetail();
   }, [assignmentId]);
 
