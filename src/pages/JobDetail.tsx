@@ -108,7 +108,8 @@ export default function JobDetail() {
         description: error.message,
         variant: "destructive",
       });
-      navigate("/jobs");
+      // Don't navigate away - show error on screen
+      setJob(null);
     } finally {
       setLoading(false);
     }
@@ -157,8 +158,10 @@ export default function JobDetail() {
   if (!job) {
     return (
       <div className="min-h-screen flex items-center justify-center pb-safe px-4">
-        <div className="text-center">
+        <div className="text-center space-y-4">
           <p className="text-muted-foreground mb-4">Job not found</p>
+          <p className="text-sm text-muted-foreground">Assignment ID: {assignmentId}</p>
+          <p className="text-xs text-muted-foreground">Check console for errors</p>
           <Button onClick={() => navigate("/jobs")}>Back to Jobs</Button>
         </div>
       </div>
