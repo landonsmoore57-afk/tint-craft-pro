@@ -95,13 +95,10 @@ export default function Jobs() {
       const from = format(dateRange.from, 'yyyy-MM-dd');
       const to = format(dateRange.to, 'yyyy-MM-dd');
 
-      const { data: session } = await supabase.auth.getSession();
-
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-jobs?from=${from}&to=${to}`,
         {
           headers: {
-            Authorization: `Bearer ${session.session?.access_token}`,
             'Content-Type': 'application/json',
           },
         }

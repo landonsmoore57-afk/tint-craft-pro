@@ -1,53 +1,59 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { FileText, Film, Package, Settings as SettingsIcon, LogOut, Menu, Sparkles, X, Calendar } from "lucide-react";
-import { User } from "@supabase/supabase-js";
 import { cn } from "@/lib/utils";
 
 export default function Layout() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, role, loading, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        navigate("/auth");
-      } else {
-        setUser(session.user);
-      }
-    });
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+    
+    // Redirect tinters away from admin-only pages
+    if (role === 'tinter' && location.pathname !== '/jobs') {
+      navigate("/jobs");
+    }
+  }, [user, loading, role, location.pathname, navigate]);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) {
-        navigate("/auth");
-      } else {
-        setUser(session.user);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
+  const handleSignOut = () => {
+    logout();
     navigate("/auth");
   };
 
   const isActive = (path: string) => location.pathname === path;
 
-  const navItems = [
-    { path: "/", label: "Quotes", icon: FileText },
-    { path: "/jobs", label: "Jobs", icon: Calendar },
-    { path: "/films", label: "Films", icon: Film },
-    { path: "/materials", label: "Materials", icon: Package },
-    { path: "/settings", label: "Settings", icon: SettingsIcon },
+  // Filter nav items based on role
+  const allNavItems = [
+    { path: "/", label: "Quotes", icon: FileText, roles: ['admin'] },
+    { path: "/jobs", label: "Jobs", icon: Calendar, roles: ['admin', 'tinter'] },
+    { path: "/films", label: "Films", icon: Film, roles: ['admin'] },
+    { path: "/materials", label: "Materials", icon: Package, roles: ['admin'] },
+    { path: "/settings", label: "Settings", icon: SettingsIcon, roles: ['admin'] },
   ];
 
-  if (!user) return null;
+  const navItems = allNavItems.filter(item => 
+    role && item.roles.includes(role)
+  );
+
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-12 w-12 rounded-lg bg-primary flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Sparkles className="h-6 w-6 text-primary-foreground" />
+          </div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex w-full bg-background">
@@ -105,7 +111,8 @@ export default function Layout() {
           </Button>
           {sidebarOpen && (
             <div className="mt-2 text-xs text-muted-foreground truncate">
-              {user.email}
+              {user.name}
+              <div className="text-[10px] mt-0.5 capitalize">{role}</div>
             </div>
           )}
         </div>

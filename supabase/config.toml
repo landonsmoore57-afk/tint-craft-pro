@@ -1,10 +1,10 @@
 project_id = "jiyeljjdpyawaikgpkqu"
 
 [functions.generate-pdf]
-verify_jwt = true
+verify_jwt = false
 
 [functions.batch-window-summary]
-verify_jwt = true
+verify_jwt = false
 
 [functions.list-jobs]
-verify_jwt = true
+verify_jwt = false
