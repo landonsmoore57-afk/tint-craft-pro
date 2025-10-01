@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 export default function Layout() {
   const { user, role, loading, logout } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -57,29 +57,57 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex w-full bg-background">
+      {/* Mobile Hamburger Menu Button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="md:hidden fixed top-4 left-4 z-50 h-10 w-10 touch-manipulation"
+      >
+        <Menu className="h-5 w-5" />
+      </Button>
+
+      {/* Sidebar Overlay for Mobile */}
+      {sidebarOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-card transition-all duration-300",
-          sidebarOpen ? "w-64" : "w-0 md:w-16"
+          // Mobile: slide in from left when open, hidden when closed
+          "md:relative",
+          sidebarOpen ? "w-64" : "-translate-x-full md:translate-x-0 md:w-16"
         )}
       >
         <div className="flex items-center justify-between h-16 px-4 border-b">
-          {sidebarOpen && (
-            <div className="flex items-center gap-2">
+          {(sidebarOpen || window.innerWidth >= 768) && (
+            <div className={cn("flex items-center gap-2", !sidebarOpen && "md:hidden")}>
               <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
                 <Sparkles className="h-4 w-4 text-primary-foreground" />
               </div>
-              <span className="font-semibold">Tint OS</span>
+              {sidebarOpen && <span className="font-semibold">Tint OS</span>}
             </div>
           )}
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className={cn(!sidebarOpen && "mx-auto")}
+            className={cn("hidden md:flex", !sidebarOpen && "mx-auto")}
           >
             {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarOpen(false)}
+            className="md:hidden"
+          >
+            <X className="h-4 w-4" />
           </Button>
         </div>
         
@@ -121,11 +149,12 @@ export default function Layout() {
       {/* Main content */}
       <main
         className={cn(
-          "flex-1 transition-all duration-300",
+          "flex-1 w-full transition-all duration-300",
+          "md:ml-0",
           sidebarOpen ? "md:ml-64" : "md:ml-16"
         )}
       >
-        <div className="container mx-auto p-6">
+        <div className="container mx-auto p-6 pt-16 md:pt-6">
           <Outlet />
         </div>
       </main>

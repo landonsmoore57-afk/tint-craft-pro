@@ -85,7 +85,7 @@ export default function QuoteBuilder() {
         .from("company_settings")
         .select("default_film_id, films:default_film_id(id, brand, series, name, vlt, active)")
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== "PGRST116") throw error;
 
@@ -166,7 +166,11 @@ export default function QuoteBuilder() {
         .from("quotes")
         .select("*")
         .eq("id", quoteId)
-        .single();
+        .maybeSingle();
+
+      if (!quote) {
+        throw new Error("Quote not found");
+      }
 
       if (quoteError) throw quoteError;
 
