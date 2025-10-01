@@ -9,6 +9,7 @@ import { Plus } from "lucide-react";
 import { JobCard } from "@/components/jobs/JobCard";
 import { MobileJobsHeader } from "@/components/jobs/MobileJobsHeader";
 import { JobsDesktopView } from "@/components/jobs/JobsDesktopView";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface RollPlan {
   slit_width_in: number;
@@ -61,6 +62,7 @@ interface JobGroup {
 export default function Jobs() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { role } = useAuth();
   const [jobs, setJobs] = useState<JobGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -71,6 +73,8 @@ export default function Jobs() {
     return { from, to };
   });
   const { toast } = useToast();
+
+  const isTinter = role === 'tinter';
 
   useEffect(() => {
     fetchJobs();
@@ -297,6 +301,8 @@ export default function Jobs() {
               onReschedule={handleReschedule}
               onUnassign={handleUnassign}
               getStatusColor={getStatusColor}
+              hideViewAction={isTinter}
+              hideDeleteAction={isTinter}
             />
           )}
         </CardContent>
@@ -326,27 +332,30 @@ export default function Jobs() {
               <JobCard
                 key={job.assignment_id}
                 job={job}
-                onView={() => navigate(`/quote/${job.quote_id}`)}
+                onView={isTinter ? undefined : () => navigate(`/quote/${job.quote_id}`)}
                 onCall={() => handleCall(job)}
                 onMessage={() => handleMessage(job)}
                 onDirections={() => handleDirections(job)}
+                hideViewAction={isTinter}
               />
             ))}
           </>
         )}
       </div>
 
-      {/* Mobile FAB */}
-      <Button
-        className="md:hidden fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-lg z-40 touch-manipulation"
-        size="icon"
-        onClick={() => navigate("/")}
-        style={{
-          bottom: "calc(5rem + env(safe-area-inset-bottom))"
-        }}
-      >
-        <Plus className="h-6 w-6" />
-      </Button>
+      {/* Mobile FAB - Only show for admins */}
+      {!isTinter && (
+        <Button
+          className="md:hidden fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-lg z-40 touch-manipulation"
+          size="icon"
+          onClick={() => navigate("/")}
+          style={{
+            bottom: "calc(5rem + env(safe-area-inset-bottom))"
+          }}
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      )}
     </div>
   );
 }

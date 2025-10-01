@@ -21,6 +21,8 @@ interface JobsDesktopViewProps {
   onReschedule: (assignmentId: string, date: Date) => void;
   onUnassign: (assignmentId: string) => void;
   getStatusColor: (status: string) => string;
+  hideViewAction?: boolean;
+  hideDeleteAction?: boolean;
 }
 
 export function JobsDesktopView({ 
@@ -28,7 +30,9 @@ export function JobsDesktopView({
   onViewQuote, 
   onReschedule, 
   onUnassign,
-  getStatusColor 
+  getStatusColor,
+  hideViewAction,
+  hideDeleteAction
 }: JobsDesktopViewProps) {
   return (
     <div className="space-y-8">
@@ -67,14 +71,16 @@ export function JobsDesktopView({
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onViewQuote(job.quote_id)}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Quote
-                      </Button>
+                      {!hideViewAction && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onViewQuote(job.quote_id)}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Quote
+                        </Button>
+                      )}
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button variant="outline" size="sm">
@@ -92,13 +98,15 @@ export function JobsDesktopView({
                           />
                         </PopoverContent>
                       </Popover>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onUnassign(job.assignment_id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {!hideDeleteAction && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onUnassign(job.assignment_id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardHeader>

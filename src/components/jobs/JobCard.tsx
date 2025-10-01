@@ -15,14 +15,15 @@ interface JobCardProps {
     status: string;
     job_date?: string;
   };
-  onView: () => void;
+  onView?: () => void;
   onCall?: () => void;
   onMessage?: () => void;
   onDirections?: () => void;
   onMore?: () => void;
+  hideViewAction?: boolean;
 }
 
-export function JobCard({ job, onView, onCall, onMessage, onDirections, onMore }: JobCardProps) {
+export function JobCard({ job, onView, onCall, onMessage, onDirections, onMore, hideViewAction }: JobCardProps) {
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "done":
@@ -48,8 +49,11 @@ export function JobCard({ job, onView, onCall, onMessage, onDirections, onMore }
 
   return (
     <Card 
-      className="mb-3 overflow-hidden border-l-4 border-l-primary/30 active:scale-[0.98] transition-transform touch-manipulation"
-      onClick={onView}
+      className={cn(
+        "mb-3 overflow-hidden border-l-4 border-l-primary/30 transition-transform touch-manipulation",
+        !hideViewAction && "active:scale-[0.98] cursor-pointer"
+      )}
+      onClick={hideViewAction ? undefined : onView}
     >
       <CardContent className="p-4 space-y-3">
         {/* Row 1: Customer Name & Status */}
