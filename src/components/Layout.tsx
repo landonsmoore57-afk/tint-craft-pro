@@ -57,15 +57,17 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex w-full bg-background">
-      {/* Mobile Hamburger Menu Button - Fixed */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="md:hidden fixed top-4 left-4 z-[60] h-10 w-10 touch-manipulation bg-background border shadow-sm"
-      >
-        <Menu className="h-5 w-5" />
-      </Button>
+      {/* Mobile Hamburger Menu Button - Always Visible Fixed Position */}
+      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-background/95 backdrop-blur-sm border-b z-[60] flex items-center px-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="h-10 w-10 touch-manipulation"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      </div>
 
       {/* Sidebar Overlay for Mobile */}
       {sidebarOpen && (

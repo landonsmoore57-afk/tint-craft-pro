@@ -121,9 +121,129 @@ Deno.serve(async (req) => {
     );
 
     const url = new URL(req.url);
+    const assignmentId = url.searchParams.get('assignment_id');
     const from = url.searchParams.get('from');
     const to = url.searchParams.get('to');
 
+    // If assignment_id is provided, fetch single job
+    if (assignmentId) {
+      const { data: assignment, error: assignError } = await supabaseClient
+        .from('job_assignments')
+        .select('id, quote_id, job_date')
+        .eq('id', assignmentId)
+        .single();
+      
+      if (assignError) throw assignError;
+      if (!assignment) {
+        return new Response(JSON.stringify({ error: 'Job not found' }), { 
+          status: 404, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      const { data: quote, error: quoteError } = await supabaseClient
+        .from('quotes')
+        .select(`id, quote_no, customer_name, customer_email, customer_phone, site_address, status, global_film_id, sections (id, name, room_id, custom_room_name, section_film_id, windows (id, width_in, height_in, quantity, window_film_id))`)
+        .eq('id', assignment.quote_id)
+        .single();
+      
+      if (quoteError) throw quoteError;
+
+      const { data: films, error: filmsError } = await supabaseClient.from('films').select('id, brand, series, name, vlt');
+      if (filmsError) throw filmsError;
+      const filmsMap = new Map(films?.map(f => [f.id, f]) || []);
+
+      const { data: rooms, error: roomsError } = await supabaseClient.from('rooms').select('id, name');
+      if (roomsError) throw roomsError;
+      const roomsMap = new Map(rooms?.map(r => [r.id, r.name]) || []);
+
+      const rollConfig = DEFAULT_ROLL_CONFIG;
+      
+      // Calculate summaries for single job
+      const resolveFilm = (win: any, section: any) => {
+        const filmId = win.window_film_id || section.section_film_id || quote.global_film_id;
+        return filmId ? filmsMap.get(filmId) : null;
+      };
+
+      const sizeMap = new Map<string, { w: number; h: number; qty: number; film_id: string | null; film_display: string }>();
+      const roomsMapCalc = new Map<string, Map<string, { w: number; h: number; qty: number }>>();
+      const roomTotals = new Map<string, number>();
+
+      for (const section of (quote.sections || [])) {
+        const roomLabel = section.custom_room_name || (section.room_id ? roomsMap.get(section.room_id) : null) || section.name || 'Unassigned';
+        if (!roomsMapCalc.has(roomLabel)) roomsMapCalc.set(roomLabel, new Map());
+        const roomSizeMap = roomsMapCalc.get(roomLabel)!;
+
+        for (const win of (section.windows || [])) {
+          const qty = Math.max(1, win.quantity || 1);
+          const film = resolveFilm(win, section);
+          const film_id = film?.id ?? null;
+          const film_display = film 
+            ? `${film.brand} ${film.series} ${film.name}${film.vlt != null ? ` ${film.vlt}%` : ''}`
+            : 'No Film';
+          
+          const key = `${win.width_in}x${win.height_in}|${film_id ?? 'none'}`;
+          const item = sizeMap.get(key) ?? { w: win.width_in, h: win.height_in, qty: 0, film_id, film_display };
+          item.qty += qty;
+          sizeMap.set(key, item);
+          
+          const roomKey = `${win.width_in}x${win.height_in}`;
+          const roomItem = roomSizeMap.get(roomKey) ?? { w: win.width_in, h: win.height_in, qty: 0 };
+          roomItem.qty += qty;
+          roomSizeMap.set(roomKey, roomItem);
+          roomTotals.set(roomLabel, (roomTotals.get(roomLabel) ?? 0) + qty);
+        }
+      }
+
+      const window_summary: WindowSizeRollup[] = [...sizeMap.values()].map(i => ({ 
+        width_in: i.w, 
+        height_in: i.h, 
+        area_sqft_each: +((i.w * i.h) / 144).toFixed(2), 
+        total_qty: i.qty,
+        film_id: i.film_id,
+        film_display: i.film_display,
+        roll_plan: pickRollForSize(i.w, i.h, rollConfig) 
+      })).sort((a, b) => 
+        a.film_display.localeCompare(b.film_display) || 
+        b.area_sqft_each - a.area_sqft_each || 
+        (a.width_in * a.height_in) - (b.width_in * b.height_in)
+      );
+
+      const rooms_summary: RoomSizeRollup[] = [...roomsMapCalc.entries()].map(([room, sizeMap]) => {
+        const sizes = [...sizeMap.values()].map(i => ({ 
+          width_in: i.w, 
+          height_in: i.h, 
+          area_sqft_each: +((i.w * i.h) / 144).toFixed(2), 
+          total_qty: i.qty, 
+          roll_plan: pickRollForSize(i.w, i.h, rollConfig) 
+        })).sort((a, b) => b.area_sqft_each - a.area_sqft_each || (a.width_in * a.height_in) - (b.width_in * b.height_in));
+        return { room_label: room, total_windows_qty: roomTotals.get(room) ?? 0, sizes };
+      }).sort((a, b) => { 
+        if (a.room_label === 'Unassigned') return 1; 
+        if (b.room_label === 'Unassigned') return -1; 
+        return a.room_label.localeCompare(b.room_label, undefined, { numeric: true }); 
+      });
+
+      const result = [{
+        job_date: assignment.job_date,
+        items: [{
+          assignment_id: assignment.id,
+          quote_id: quote.id,
+          quote_no: quote.quote_no,
+          customer_name: quote.customer_name,
+          site_address: quote.site_address,
+          status: quote.status,
+          window_summary,
+          rooms_summary
+        }]
+      }];
+
+      return new Response(JSON.stringify(result), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
+
+    // Original date range logic
     if (!from || !to) {
       return new Response(JSON.stringify({ error: 'from and to date parameters required (YYYY-MM-DD)' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfWeek, addWeeks, isToday, isFuture } from "date-fns";
@@ -308,14 +309,14 @@ export default function Jobs() {
         </CardContent>
       </Card>
 
-      {/* Mobile View - Card List */}
-      <div className="md:hidden space-y-3">
+      {/* Mobile View - Card List with Date Headers */}
+      <div className="md:hidden space-y-6">
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">
             <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             Loading jobs...
           </div>
-        ) : allJobs.length === 0 ? (
+        ) : filteredJobs.length === 0 ? (
           <div className="text-center py-12 px-4">
             <div className="mb-4 text-6xl">📋</div>
             <h3 className="text-lg font-semibold mb-2">No jobs found</h3>
@@ -328,16 +329,34 @@ export default function Jobs() {
           </div>
         ) : (
           <>
-            {allJobs.map((job) => (
-              <JobCard
-                key={job.assignment_id}
-                job={job}
-                onView={() => navigate(`/quote/${job.quote_id}`)}
-                onCall={() => handleCall(job)}
-                onMessage={() => handleMessage(job)}
-                onDirections={() => handleDirections(job)}
-                hideViewAction={isTinter}
-              />
+            {filteredJobs.map((group) => (
+              <div key={group.job_date} className="space-y-3">
+                {/* Date Header */}
+                <div className="sticky top-16 z-30 bg-background/95 backdrop-blur-sm py-2 -mx-4 px-4 border-b">
+                  <div className="flex items-center gap-2">
+                    <div className="h-1 w-1 rounded-full bg-primary"></div>
+                    <h3 className="text-sm font-semibold text-primary">
+                      {format(new Date(group.job_date + 'T00:00:00'), 'EEEE, MMMM d')}
+                    </h3>
+                    <Badge variant="secondary" className="text-xs">
+                      {group.items.length}
+                    </Badge>
+                  </div>
+                </div>
+                
+                {/* Jobs for this date */}
+                {group.items.map((job) => (
+                  <JobCard
+                    key={job.assignment_id}
+                    job={job}
+                    onView={() => navigate(`/jobs/${job.assignment_id}`)}
+                    onCall={() => handleCall(job)}
+                    onMessage={() => handleMessage(job)}
+                    onDirections={() => handleDirections(job)}
+                    hideViewAction={false}
+                  />
+                ))}
+              </div>
             ))}
           </>
         )}
