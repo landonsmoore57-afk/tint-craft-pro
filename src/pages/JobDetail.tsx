@@ -48,18 +48,17 @@ interface JobDetail {
 }
 
 export default function JobDetail() {
-  console.log('JobDetail component mounting...');
   const { assignmentId } = useParams();
-  console.log('Assignment ID from params:', assignmentId);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [job, setJob] = useState<JobDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('useEffect running with assignmentId:', assignmentId);
     if (!assignmentId) {
-      console.error('No assignment ID provided!');
+      setError("No assignment ID provided");
+      setLoading(false);
       return;
     }
     fetchJobDetail();
@@ -69,54 +68,44 @@ export default function JobDetail() {
     if (!assignmentId) return;
     
     setLoading(true);
+    setError(null);
+    
     try {
-      console.log('Fetching job detail for assignment:', assignmentId);
-      
       const supabaseUrl = window.location.origin.includes('lovableproject.com') 
         ? 'https://jiyeljjdpyawaikgpkqu.supabase.co'
         : import.meta.env.VITE_SUPABASE_URL;
       
       const url = `${supabaseUrl}/functions/v1/list-jobs?assignment_id=${assignmentId}`;
-      console.log('Fetching from:', url);
       
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
         },
       });
-
-      console.log('Response status:', response.status);
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response:', errorText);
-        throw new Error('Failed to fetch job details');
+        throw new Error(`API Error: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('Received data:', data);
       
-      // Extract the job from the grouped response
       if (data && data.length > 0 && data[0].items && data[0].items.length > 0) {
         const jobData = data[0].items[0];
-        console.log('Setting job data:', jobData);
         setJob({
           ...jobData,
           job_date: data[0].job_date
         });
+        setError(null);
       } else {
-        console.error('No job data found in response');
-        throw new Error('Job not found');
+        setError("Job data not found in response");
       }
-    } catch (error: any) {
-      console.error('Error in fetchJobDetail:', error);
+    } catch (err: any) {
+      setError(err.message || "Failed to load job details");
       toast({
         title: "Error loading job",
-        description: error.message,
+        description: err.message,
         variant: "destructive",
       });
-      // Don't navigate away - show error on screen
-      setJob(null);
     } finally {
       setLoading(false);
     }
@@ -153,10 +142,29 @@ export default function JobDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center pb-safe">
-        <div className="text-center">
-          <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading job details...</p>
+      <div className="min-h-screen flex items-center justify-center pb-safe bg-background">
+        <div className="text-center space-y-4 p-8">
+          <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-lg font-medium">Loading Job Details</p>
+          <p className="text-sm text-muted-foreground">Assignment: {assignmentId?.slice(0, 8)}...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center pb-safe px-4 bg-background">
+        <div className="text-center space-y-4 p-8 max-w-md">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold">Error Loading Job</h2>
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <p className="text-xs text-muted-foreground font-mono bg-muted p-2 rounded">
+            ID: {assignmentId}
+          </p>
+          <Button onClick={() => navigate("/jobs")} className="w-full">
+            Back to Jobs
+          </Button>
         </div>
       </div>
     );
@@ -164,12 +172,14 @@ export default function JobDetail() {
 
   if (!job) {
     return (
-      <div className="min-h-screen flex items-center justify-center pb-safe px-4">
-        <div className="text-center space-y-4">
-          <p className="text-muted-foreground mb-4">Job not found</p>
-          <p className="text-sm text-muted-foreground">Assignment ID: {assignmentId}</p>
-          <p className="text-xs text-muted-foreground">Check console for errors</p>
-          <Button onClick={() => navigate("/jobs")}>Back to Jobs</Button>
+      <div className="min-h-screen flex items-center justify-center pb-safe px-4 bg-background">
+        <div className="text-center space-y-4 p-8">
+          <div className="text-6xl mb-4">🔍</div>
+          <h2 className="text-xl font-bold">Job Not Found</h2>
+          <p className="text-sm text-muted-foreground">No job data available</p>
+          <Button onClick={() => navigate("/jobs")} className="w-full">
+            Back to Jobs
+          </Button>
         </div>
       </div>
     );
