@@ -28,6 +28,8 @@ interface WindowSize {
   height_in: number;
   area_sqft_each: number;
   total_qty: number;
+  film_id: string | null;
+  film_display: string;
   roll_plan?: RollPlan | { error: string };
 }
 
@@ -311,8 +313,8 @@ export default function Jobs() {
                               <Table>
                                 <TableHeader>
                                   <TableRow className="bg-accent/5 hover:bg-accent/5">
+                                    <TableHead className="font-semibold">Film</TableHead>
                                     <TableHead className="font-semibold">Size (W×H in)</TableHead>
-                                    <TableHead className="text-right font-semibold">Area (sq ft)</TableHead>
                                     <TableHead className="text-right font-semibold">Qty</TableHead>
                                     <TableHead className="font-semibold">Roll Size</TableHead>
                                   </TableRow>
@@ -321,11 +323,11 @@ export default function Jobs() {
                                   {job.window_summary.length > 0 ? (
                                     job.window_summary.map((size, idx) => (
                                       <TableRow key={idx}>
+                                        <TableCell className="text-sm font-medium">
+                                          {size.film_display}
+                                        </TableCell>
                                         <TableCell className="font-mono font-medium">
                                           {size.width_in}×{size.height_in}
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                          {size.area_sqft_each.toFixed(2)}
                                         </TableCell>
                                         <TableCell className="text-right font-semibold">
                                           {size.total_qty}

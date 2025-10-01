@@ -27,7 +27,6 @@ export function WindowSummary({ rollup }: WindowSummaryProps) {
             <TableRow>
               <TableHead>Film</TableHead>
               <TableHead>Size (W×H in)</TableHead>
-              <TableHead className="text-right">Area (sq ft each)</TableHead>
               <TableHead className="text-right">Qty</TableHead>
               <TableHead>Roll Size</TableHead>
             </TableRow>
@@ -37,7 +36,6 @@ export function WindowSummary({ rollup }: WindowSummaryProps) {
               <TableRow key={idx}>
                 <TableCell className="text-sm font-medium">{item.film_display}</TableCell>
                 <TableCell className="font-mono">{item.width_in}×{item.height_in}</TableCell>
-                <TableCell className="text-right font-mono">{formatSqft(item.area_sqft_each)}</TableCell>
                 <TableCell className="text-right font-semibold">{item.total_qty}</TableCell>
                 <TableCell className="text-sm">
                   <TooltipProvider>
