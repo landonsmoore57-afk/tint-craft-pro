@@ -63,32 +63,46 @@ export default function JobDetail() {
     
     setLoading(true);
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-jobs?assignment_id=${assignmentId}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      console.log('Fetching job detail for assignment:', assignmentId);
+      
+      const supabaseUrl = window.location.origin.includes('lovableproject.com') 
+        ? 'https://jiyeljjdpyawaikgpkqu.supabase.co'
+        : import.meta.env.VITE_SUPABASE_URL;
+      
+      const url = `${supabaseUrl}/functions/v1/list-jobs?assignment_id=${assignmentId}`;
+      console.log('Fetching from:', url);
+      
+      const response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
+      console.log('Response status:', response.status);
+      
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
         throw new Error('Failed to fetch job details');
       }
 
       const data = await response.json();
+      console.log('Received data:', data);
       
       // Extract the job from the grouped response
       if (data && data.length > 0 && data[0].items && data[0].items.length > 0) {
         const jobData = data[0].items[0];
+        console.log('Setting job data:', jobData);
         setJob({
           ...jobData,
           job_date: data[0].job_date
         });
       } else {
+        console.error('No job data found in response');
         throw new Error('Job not found');
       }
     } catch (error: any) {
+      console.error('Error in fetchJobDetail:', error);
       toast({
         title: "Error loading job",
         description: error.message,
