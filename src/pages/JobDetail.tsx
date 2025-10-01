@@ -142,11 +142,12 @@ export default function JobDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center pb-safe bg-background">
-        <div className="text-center space-y-4 p-8">
-          <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-lg font-medium">Loading Job Details</p>
-          <p className="text-sm text-muted-foreground">Assignment: {assignmentId?.slice(0, 8)}...</p>
+      <div className="min-h-screen flex items-center justify-center pb-safe bg-blue-50">
+        <div className="text-center space-y-4 p-8 bg-white rounded-lg shadow-lg">
+          <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-lg font-bold text-blue-600">📱 LOADING JOB DETAIL PAGE 📱</p>
+          <p className="text-sm text-gray-600">Assignment: {assignmentId?.slice(0, 8)}...</p>
+          <p className="text-xs text-gray-400">If you see this, the detail page is working!</p>
         </div>
       </div>
     );
@@ -186,9 +187,9 @@ export default function JobDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-green-50 pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-background border-b">
+      <div className="sticky top-0 z-40 bg-white border-b shadow-sm">
         <div className="flex items-center gap-3 p-4">
           <Button
             variant="ghost"
