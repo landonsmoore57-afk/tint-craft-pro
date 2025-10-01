@@ -48,12 +48,23 @@ interface JobDetail {
 }
 
 export default function JobDetail() {
+  // MOBILE DEBUG - Show alert on mount
+  const [mounted, setMounted] = useState(false);
+  
   const { assignmentId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [job, setJob] = useState<JobDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    toast({
+      title: "🎯 JobDetail Page Loaded!",
+      description: `Assignment ID: ${assignmentId?.slice(0, 8)}`,
+    });
+  }, []);
 
   useEffect(() => {
     if (!assignmentId) {
@@ -142,12 +153,13 @@ export default function JobDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center pb-safe bg-blue-50">
-        <div className="text-center space-y-4 p-8 bg-white rounded-lg shadow-lg">
-          <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-lg font-bold text-blue-600">📱 LOADING JOB DETAIL PAGE 📱</p>
-          <p className="text-sm text-gray-600">Assignment: {assignmentId?.slice(0, 8)}...</p>
-          <p className="text-xs text-gray-400">If you see this, the detail page is working!</p>
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-blue-500">
+        <div className="text-center space-y-4 p-8 bg-white rounded-lg shadow-2xl max-w-sm mx-4">
+          <div className="h-16 w-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-2xl font-bold text-blue-600">🚀 JOB DETAIL PAGE 🚀</p>
+          <p className="text-lg font-semibold">Assignment ID:</p>
+          <p className="text-sm font-mono bg-gray-100 p-2 rounded break-all">{assignmentId}</p>
+          <p className="text-xs text-gray-500">This is the JobDetail component!</p>
         </div>
       </div>
     );
