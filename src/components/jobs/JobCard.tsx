@@ -47,13 +47,19 @@ export function JobCard({ job, onView, onCall, onMessage, onDirections, onMore, 
       .slice(0, 2);
   };
 
+  const handleCardClick = () => {
+    if (!hideViewAction && onView) {
+      onView();
+    }
+  };
+
   return (
     <Card 
       className={cn(
         "mb-3 overflow-hidden border-l-4 border-l-primary/30 transition-transform touch-manipulation",
         !hideViewAction && "active:scale-[0.98] cursor-pointer"
       )}
-      onClick={hideViewAction ? undefined : onView}
+      onClick={handleCardClick}
     >
       <CardContent className="p-4 space-y-3">
         {/* Row 1: Customer Name & Status */}

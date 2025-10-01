@@ -57,12 +57,12 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex w-full bg-background">
-      {/* Mobile Hamburger Menu Button */}
+      {/* Mobile Hamburger Menu Button - Fixed */}
       <Button
         variant="ghost"
         size="icon"
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 h-10 w-10 touch-manipulation"
+        className="md:hidden fixed top-4 left-4 z-[60] h-10 w-10 touch-manipulation bg-background border shadow-sm"
       >
         <Menu className="h-5 w-5" />
       </Button>

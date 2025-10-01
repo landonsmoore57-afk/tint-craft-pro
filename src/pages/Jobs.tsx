@@ -332,7 +332,7 @@ export default function Jobs() {
               <JobCard
                 key={job.assignment_id}
                 job={job}
-                onView={isTinter ? undefined : () => navigate(`/quote/${job.quote_id}`)}
+                onView={() => navigate(`/quote/${job.quote_id}`)}
                 onCall={() => handleCall(job)}
                 onMessage={() => handleMessage(job)}
                 onDirections={() => handleDirections(job)}
