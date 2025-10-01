@@ -16,8 +16,8 @@ export default function Layout() {
       navigate("/auth");
     }
     
-    // Redirect tinters away from admin-only pages
-    if (role === 'tinter' && location.pathname !== '/jobs') {
+    // Redirect tinters away from admin-only pages (but allow /jobs and /jobs/*)
+    if (role === 'tinter' && !location.pathname.startsWith('/jobs')) {
       navigate("/jobs");
     }
   }, [user, loading, role, location.pathname, navigate]);

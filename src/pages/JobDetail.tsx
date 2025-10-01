@@ -48,23 +48,12 @@ interface JobDetail {
 }
 
 export default function JobDetail() {
-  // MOBILE DEBUG - Show alert on mount
-  const [mounted, setMounted] = useState(false);
-  
   const { assignmentId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [job, setJob] = useState<JobDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-    toast({
-      title: "🎯 JobDetail Page Loaded!",
-      description: `Assignment ID: ${assignmentId?.slice(0, 8)}`,
-    });
-  }, []);
 
   useEffect(() => {
     if (!assignmentId) {
@@ -153,13 +142,11 @@ export default function JobDetail() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-blue-500">
-        <div className="text-center space-y-4 p-8 bg-white rounded-lg shadow-2xl max-w-sm mx-4">
-          <div className="h-16 w-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-2xl font-bold text-blue-600">🚀 JOB DETAIL PAGE 🚀</p>
-          <p className="text-lg font-semibold">Assignment ID:</p>
-          <p className="text-sm font-mono bg-gray-100 p-2 rounded break-all">{assignmentId}</p>
-          <p className="text-xs text-gray-500">This is the JobDetail component!</p>
+      <div className="min-h-screen flex items-center justify-center pb-safe bg-background">
+        <div className="text-center space-y-4 p-8">
+          <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-lg font-medium">Loading Job Details</p>
+          <p className="text-sm text-muted-foreground">Assignment: {assignmentId?.slice(0, 8)}...</p>
         </div>
       </div>
     );
@@ -199,9 +186,9 @@ export default function JobDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-green-50 pb-24">
+    <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-white border-b shadow-sm">
+      <div className="sticky top-0 z-40 bg-background border-b">
         <div className="flex items-center gap-3 p-4">
           <Button
             variant="ghost"
