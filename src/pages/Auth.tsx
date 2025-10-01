@@ -91,9 +91,6 @@ export default function Auth() {
                 className="text-center text-2xl tracking-widest font-bold h-16"
                 autoFocus
               />
-              <p className="text-xs text-muted-foreground text-center">
-                Test PINs: 1234 (Admin), 5678 (Tinter), 9012 (Tinter)
-              </p>
             </div>
             <Button 
               type="submit" 
