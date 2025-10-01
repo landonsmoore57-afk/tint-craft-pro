@@ -71,10 +71,7 @@ export default function JobDetail() {
     setError(null);
     
     try {
-      const supabaseUrl = window.location.origin.includes('lovableproject.com') 
-        ? 'https://jiyeljjdpyawaikgpkqu.supabase.co'
-        : import.meta.env.VITE_SUPABASE_URL;
-      
+      const supabaseUrl = 'https://jiyeljjdpyawaikgpkqu.supabase.co';
       const url = `${supabaseUrl}/functions/v1/list-jobs?assignment_id=${assignmentId}`;
       
       const response = await fetch(url, {
@@ -84,7 +81,8 @@ export default function JobDetail() {
       });
       
       if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`API Error ${response.status}: ${errorText.slice(0, 100)}`);
       }
 
       const data = await response.json();
@@ -96,18 +94,20 @@ export default function JobDetail() {
           job_date: data[0].job_date
         });
         setError(null);
+        setLoading(false);
       } else {
-        setError("Job data not found in response");
+        throw new Error("No job found with this ID");
       }
     } catch (err: any) {
-      setError(err.message || "Failed to load job details");
+      const errorMsg = err.message || "Failed to load job details";
+      setError(errorMsg);
+      setLoading(false);
       toast({
         title: "Error loading job",
-        description: err.message,
+        description: errorMsg,
         variant: "destructive",
+        duration: 10000,
       });
-    } finally {
-      setLoading(false);
     }
   };
 
