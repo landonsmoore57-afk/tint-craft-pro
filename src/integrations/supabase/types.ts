@@ -79,6 +79,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           id: string
+          is_featured: boolean
           name: string
           notes: string | null
           security_film: boolean
@@ -95,6 +96,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string
+          is_featured?: boolean
           name: string
           notes?: string | null
           security_film?: boolean
@@ -111,6 +113,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string
+          is_featured?: boolean
           name?: string
           notes?: string | null
           security_film?: boolean
@@ -282,6 +285,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_common: boolean | null
+          is_featured: boolean
           name: string
           updated_at: string | null
         }
@@ -289,6 +293,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_common?: boolean | null
+          is_featured?: boolean
           name: string
           updated_at?: string | null
         }
@@ -296,6 +301,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_common?: boolean | null
+          is_featured?: boolean
           name?: string
           updated_at?: string | null
         }

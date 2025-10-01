@@ -39,21 +39,47 @@ Deno.serve(async (req) => {
       }
     );
 
-    // Get top films from the ranking view
-    const { data, error } = await supabase
-      .from('film_usage_ranking')
-      .select('id, brand, series, name, vlt, sku, active, cost_per_sqft, sell_per_sqft, security_film, notes')
+    // Get featured films first
+    const { data: featuredFilms, error: featuredError } = await supabase
+      .from('films')
+      .select('id, brand, series, name, vlt, sku, cost_per_sqft, sell_per_sqft, security_film, notes')
       .eq('active', true)
-      .order('usage_score', { ascending: false })
+      .eq('is_featured', true)
       .order('brand', { ascending: true })
       .order('series', { ascending: true })
-      .order('name', { ascending: true })
-      .limit(limit);
+      .order('name', { ascending: true });
 
-    if (error) {
-      console.error('Error fetching film suggestions:', error);
-      throw error;
+    if (featuredError) {
+      console.error('Error fetching featured films:', featuredError);
+      throw featuredError;
     }
+
+    const remainingSlots = limit - (featuredFilms?.length || 0);
+    let topUsageFilms: any[] = [];
+    
+    // Fill remaining slots with usage-ranked films
+    if (remainingSlots > 0) {
+      const { data: usageFilms, error: usageError } = await supabase
+        .from('film_usage_ranking')
+        .select('id, brand, series, name, vlt, sku, active, cost_per_sqft, sell_per_sqft, security_film, notes')
+        .eq('active', true)
+        .eq('is_featured', false)
+        .order('usage_score', { ascending: false })
+        .order('brand', { ascending: true })
+        .order('series', { ascending: true })
+        .order('name', { ascending: true })
+        .limit(remainingSlots);
+      
+      if (usageError) {
+        console.error('Error fetching usage films:', usageError);
+        throw usageError;
+      }
+      topUsageFilms = usageFilms || [];
+    }
+
+    // Combine featured and usage-based films
+    const data = [...(featuredFilms || []), ...topUsageFilms];
+    const error = null;
 
     // Cache the result
     cache.set(cacheKey, { data, timestamp: Date.now() });

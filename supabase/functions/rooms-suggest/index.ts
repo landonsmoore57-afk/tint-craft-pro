@@ -39,19 +39,42 @@ Deno.serve(async (req) => {
       }
     );
 
-    // Get top rooms from the ranking view (common first, then by usage)
-    const { data, error } = await supabase
-      .from('room_usage_ranking')
+    // Get featured rooms first
+    const { data: featuredRooms, error: featuredError } = await supabase
+      .from('rooms')
       .select('id, name, is_common')
-      .order('is_common', { ascending: false })
-      .order('usage_score', { ascending: false })
-      .order('name', { ascending: true })
-      .limit(limit);
+      .eq('is_featured', true)
+      .order('name', { ascending: true });
 
-    if (error) {
-      console.error('Error fetching room suggestions:', error);
-      throw error;
+    if (featuredError) {
+      console.error('Error fetching featured rooms:', featuredError);
+      throw featuredError;
     }
+
+    const remainingSlots = limit - (featuredRooms?.length || 0);
+    let topUsageRooms: any[] = [];
+    
+    // Fill remaining slots with usage-ranked rooms
+    if (remainingSlots > 0) {
+      const { data: usageRooms, error: usageError } = await supabase
+        .from('room_usage_ranking')
+        .select('id, name, is_common')
+        .eq('is_featured', false)
+        .order('is_common', { ascending: false })
+        .order('usage_score', { ascending: false })
+        .order('name', { ascending: true })
+        .limit(remainingSlots);
+      
+      if (usageError) {
+        console.error('Error fetching usage rooms:', usageError);
+        throw usageError;
+      }
+      topUsageRooms = usageRooms || [];
+    }
+
+    // Combine featured and usage-based rooms
+    const data = [...(featuredRooms || []), ...topUsageRooms];
+    const error = null;
 
     // Cache the result
     cache.set(cacheKey, { data, timestamp: Date.now() });
