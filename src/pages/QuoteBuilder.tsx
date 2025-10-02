@@ -23,7 +23,7 @@ export default function QuoteBuilder() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(id && id !== "new");
   const [films, setFilms] = useState<FilmData[]>([]);
   const [materials, setMaterials] = useState<MaterialData[]>([]);
   const [rooms, setRooms] = useState<RoomData[]>([]);
