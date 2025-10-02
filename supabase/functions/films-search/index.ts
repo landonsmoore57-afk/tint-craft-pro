@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
       }
     );
 
-    const searchPattern = `*${query}*`;
+    const searchPattern = `%${query}%`;
     const lowerQuery = query.toLowerCase().trim();
     
     // Check if query is numeric (for VLT search)
