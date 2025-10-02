@@ -13,7 +13,17 @@ Deno.serve(async (req) => {
 
   try {
     const token = req.headers.get('x-app-token') || ''
+    
+    console.log('Save-quote auth check:', {
+      hasAppToken: !!APP_TOKEN,
+      appTokenLength: APP_TOKEN?.length,
+      receivedToken: token?.substring(0, 20) + '...',
+      receivedTokenLength: token?.length,
+      tokensMatch: token === APP_TOKEN
+    })
+    
     if (!APP_TOKEN || token !== APP_TOKEN) {
+      console.error('Token mismatch!')
       return new Response(JSON.stringify({ ok: false, code: 'BAD_TOKEN', error: 'Not authenticated' }), { status: 401, headers })
     }
 

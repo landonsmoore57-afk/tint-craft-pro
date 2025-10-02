@@ -294,6 +294,13 @@ export default function QuoteBuilder() {
       const functionsUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '') + '/functions/v1';
       const appToken = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       
+      console.log('Save quote debug:', {
+        functionsUrl,
+        hasToken: !!appToken,
+        tokenLength: appToken?.length,
+        userId: userId
+      });
+      
       const res = await fetch(`${functionsUrl}/save-quote`, {
         method: 'POST',
         headers: {
@@ -304,8 +311,12 @@ export default function QuoteBuilder() {
         body: JSON.stringify({ quote: quoteData, sections: sectionsData }),
       });
 
+      console.log('Save response status:', res.status);
+      
       let body: any = {};
       try { body = await res.json(); } catch { /* ignore */ }
+      
+      console.log('Save response body:', body);
 
       if (!res.ok) {
         if (res.status === 401 || body?.code === 'BAD_TOKEN') {
