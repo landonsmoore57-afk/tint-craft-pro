@@ -77,11 +77,21 @@ export function FilmSelector({ value, onChange, placeholder = "Select film..." }
 
     try {
       setLoading(true);
-      const { data, error } = await supabase.functions.invoke('films-search', {
-        body: { q: query, limit: 20 }
+      
+      // Construct URL with query parameters
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/films-search?q=${encodeURIComponent(query)}&limit=20`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        }
       });
-
-      if (error) throw error;
+      
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
       setFilms(data || []);
     } catch (error: any) {
       console.error('Error searching films:', error);
