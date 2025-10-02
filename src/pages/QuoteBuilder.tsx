@@ -248,7 +248,45 @@ export default function QuoteBuilder() {
 
       // Base quote data
       const quoteData: any = {
-...
+        id: id === "new" ? undefined : id,
+        quote_number: `Q-${Date.now()}`,
+        customer_name: customerName,
+        customer_email: customerEmail || null,
+        customer_phone: customerPhone || null,
+        site_address: siteAddress || null,
+        status: status,
+        global_film_id: globalFilmId,
+        discount_flat: parseFloat(discountFlat) || 0,
+        discount_percent: parseFloat(discountPercent) || 0,
+        tax_percent: parseFloat(taxPercent) || 0,
+        travel_fee: parseFloat(travelFee) || 0,
+        deposit_percent: parseFloat(depositPercent) || 0,
+        travel_taxable: travelTaxable,
+        notes_internal: notesInternal || null,
+        notes_customer: notesCustomer || null,
+        created_by: userId,
+      };
+
+      // Sections data with windows
+      const sectionsData = sections.map((section, sIndex) => ({
+        id: section.id,
+        name: section.name,
+        room_id: section.room_id,
+        custom_room_name: section.custom_room_name,
+        section_film_id: section.section_film_id,
+        position: sIndex,
+        windows: section.windows.map((window, wIndex) => ({
+          id: window.id,
+          label: window.label,
+          width_in: window.width_in,
+          height_in: window.height_in,
+          quote_width_in: window.quote_width_in || null,
+          quote_height_in: window.quote_height_in || null,
+          quantity: window.quantity || 1,
+          waste_factor_percent: window.waste_factor_percent || 0,
+          window_film_id: window.window_film_id || null,
+          override_sell_per_sqft: window.override_sell_per_sqft || null,
+          position: wIndex,
         })),
       }));
 
