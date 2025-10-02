@@ -11,6 +11,7 @@ import { formatCurrency, formatSqft } from "@/lib/quoteCalculations";
 import { RoomSelector } from "./RoomSelector";
 import { FilmSelector } from "./FilmSelector";
 import { supabase } from "@/integrations/supabase/client";
+import { QuoteDimsPill } from "@/components/QuoteDimsPill";
 
 interface QuoteSectionProps {
   section: SectionData;
@@ -138,11 +139,7 @@ export function QuoteSection({
                     className="font-medium bg-background border-0 shadow-none focus-visible:ring-1"
                     placeholder="Window name..."
                   />
-                  {hasQuoteDims(window) && (
-                    <Badge variant="secondary" className="text-xs font-semibold">
-                      Quote dims
-                    </Badge>
-                  )}
+                  {hasQuoteDims(window) && <QuoteDimsPill className="ml-1" />}
                 </div>
                 <div className="flex items-center gap-1">
                   <Button 

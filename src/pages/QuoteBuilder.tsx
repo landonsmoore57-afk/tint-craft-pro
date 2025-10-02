@@ -240,10 +240,11 @@ export default function QuoteBuilder() {
     try {
       setLoading(true);
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      // Get the current user ID from localStorage (PIN auth)
+      const userId = localStorage.getItem('userId');
+      if (!userId) throw new Error("Not authenticated");
 
-      // Base quote data (excluding quote_no which is immutable and auto-generated)
+      // Base quote data
       const quoteData: any = {
         customer_name: customerName,
         customer_email: customerEmail || null,
@@ -263,77 +264,43 @@ export default function QuoteBuilder() {
 
       // Only set created_by and quote_number for new quotes
       if (!id || id === "new") {
-        quoteData.created_by = user.id;
-        quoteData.quote_number = `Q-${Date.now()}`; // Legacy field
-      }
-
-      let quoteId = id;
-
-      if (!id || id === "new") {
-        // Create new quote
-        const { data: newQuote, error: quoteError } = await supabase
-          .from("quotes")
-          .insert([quoteData])
-          .select()
-          .single();
-
-        if (quoteError) throw quoteError;
-        quoteId = newQuote.id;
+        quoteData.created_by = userId;
+        quoteData.quote_number = `Q-${Date.now()}`;
       } else {
-        // Update existing quote
-        const { error: quoteError } = await supabase
-          .from("quotes")
-          .update(quoteData)
-          .eq("id", id);
-
-        if (quoteError) throw quoteError;
-
-        // Delete existing sections and windows (cascade will handle windows)
-        await supabase.from("sections").delete().eq("quote_id", id);
+        quoteData.id = id;
       }
 
-      // Insert sections and windows
-      for (let sIndex = 0; sIndex < sections.length; sIndex++) {
-        const section = sections[sIndex];
-        
-        const { data: newSection, error: sectionError } = await supabase
-          .from("sections")
-          .insert([{
-            quote_id: quoteId,
-            name: section.name,
-            room_id: section.room_id,
-            custom_room_name: section.custom_room_name,
-            section_film_id: section.section_film_id,
-            position: sIndex,
-          }])
-          .select()
-          .single();
+      // Prepare sections data
+      const sectionsData = sections.map((section, sIndex) => ({
+        name: section.name,
+        room_id: section.room_id,
+        custom_room_name: section.custom_room_name,
+        section_film_id: section.section_film_id,
+        position: sIndex,
+        windows: section.windows.map((window, wIndex) => ({
+          label: window.label,
+          width_in: window.width_in,
+          height_in: window.height_in,
+          quote_width_in: window.quote_width_in || null,
+          quote_height_in: window.quote_height_in || null,
+          quantity: window.quantity,
+          waste_factor_percent: window.waste_factor_percent,
+          window_film_id: window.window_film_id,
+          override_sell_per_sqft: window.override_sell_per_sqft,
+          position: wIndex,
+        })),
+      }));
 
-        if (sectionError) throw sectionError;
+      // Call the edge function
+      const { data, error } = await supabase.functions.invoke('save-quote', {
+        body: { quote: quoteData, sections: sectionsData },
+        headers: {
+          'x-app-token': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
+        },
+      });
 
-        // Insert windows
-        if (section.windows.length > 0) {
-          const windowsToInsert = section.windows.map((window, wIndex) => ({
-            section_id: newSection.id,
-            label: window.label,
-            width_in: window.width_in,
-            height_in: window.height_in,
-            quote_width_in: window.quote_width_in || null,
-            quote_height_in: window.quote_height_in || null,
-            quantity: window.quantity,
-            waste_factor_percent: window.waste_factor_percent,
-            window_film_id: window.window_film_id,
-            override_sell_per_sqft: window.override_sell_per_sqft,
-            position: wIndex,
-          }));
-
-          const { error: windowsError } = await supabase
-            .from("windows")
-            .insert(windowsToInsert);
-
-          if (windowsError) throw windowsError;
-        }
-      }
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || 'Save failed');
 
       toast({
         title: "Success",
@@ -342,6 +309,7 @@ export default function QuoteBuilder() {
 
       navigate("/");
     } catch (error: any) {
+      console.error('Save quote error:', error);
       toast({
         title: "Error saving quote",
         description: error.message,

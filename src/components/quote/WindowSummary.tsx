@@ -1,9 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { WindowSizeRollup, formatSqft, formatRollPlan } from "@/lib/quoteCalculations";
 import { Maximize2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { QuoteDimsPill } from "@/components/QuoteDimsPill";
 
 interface WindowSummaryProps {
   rollup: WindowSizeRollup[];
@@ -38,12 +38,8 @@ export function WindowSummary({ rollup }: WindowSummaryProps) {
                 <TableCell className="text-sm font-medium">{item.film_display}</TableCell>
                 <TableCell className="font-mono">
                   <div className="flex items-center gap-2">
-                    {item.width_in}×{item.height_in}
-                    {item.uses_quote_dims && (
-                      <Badge variant="secondary" className="text-[10px] px-1 py-0 font-semibold">
-                        Quote dims
-                      </Badge>
-                    )}
+                    <span>{item.width_in}×{item.height_in}</span>
+                    {item.uses_quote_dims && <QuoteDimsPill />}
                   </div>
                 </TableCell>
                 <TableCell className="text-right font-semibold">{item.total_qty}</TableCell>
