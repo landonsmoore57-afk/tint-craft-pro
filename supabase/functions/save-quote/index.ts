@@ -2,13 +2,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.58.0"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-app-token',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-app-token, x-app-actor-id, x-app-actor-role',
 }
 
 interface QuotePayload {
   quote: any
   sections: any[]
 }
+
+const APP_TOKEN = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -18,15 +20,19 @@ Deno.serve(async (req) => {
 
   try {
     const appToken = req.headers.get('x-app-token')
-    const expectedToken = Deno.env.get('SUPABASE_ANON_KEY')
 
-    if (!expectedToken || appToken !== expectedToken) {
-      console.error('Invalid app token')
+    if (!APP_TOKEN || appToken !== APP_TOKEN) {
+      console.error('Invalid app token - expected:', APP_TOKEN ? 'token set' : 'no token', 'received:', appToken ? 'token provided' : 'no token')
       return new Response(
         JSON.stringify({ error: 'Not authenticated' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    // Optional: capture actor for auditing
+    const actorId = req.headers.get('x-app-actor-id') || null
+    const actorRole = req.headers.get('x-app-actor-role') || null
+    console.log('Actor:', actorId, actorRole)
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',

@@ -242,7 +242,9 @@ export default function QuoteBuilder() {
 
       // Get the current user ID from localStorage (PIN auth)
       const userId = localStorage.getItem('userId');
-      if (!userId) throw new Error("Not authenticated");
+      if (!userId) {
+        throw new Error("Not authenticated - please log in again");
+      }
 
       // Base quote data
       const quoteData: any = {
@@ -291,16 +293,32 @@ export default function QuoteBuilder() {
         })),
       }));
 
+      // Get the APP_INTERNAL_TOKEN from the secret we added
+      const appToken = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      console.log('Calling save-quote function...');
+
       // Call the edge function
       const { data, error } = await supabase.functions.invoke('save-quote', {
         body: { quote: quoteData, sections: sectionsData },
         headers: {
-          'x-app-token': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
+          'x-app-token': appToken,
+          'x-app-actor-id': userId,
         },
       });
 
-      if (error) throw error;
-      if (!data?.ok) throw new Error(data?.error || 'Save failed');
+      console.log('Save response:', { data, error });
+
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
+      
+      if (!data?.ok) {
+        const errorMsg = data?.error || 'Save failed';
+        console.error('Save failed:', errorMsg);
+        throw new Error(errorMsg);
+      }
 
       toast({
         title: "Success",
@@ -312,7 +330,7 @@ export default function QuoteBuilder() {
       console.error('Save quote error:', error);
       toast({
         title: "Error saving quote",
-        description: error.message,
+        description: error.message || "Failed to save quote",
         variant: "destructive",
       });
     } finally {
