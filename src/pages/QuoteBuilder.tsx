@@ -162,33 +162,18 @@ export default function QuoteBuilder() {
     try {
       setLoading(true);
       
-      const { data: quote, error: quoteError } = await supabase
-        .from("quotes")
-        .select("*")
-        .eq("id", quoteId)
-        .maybeSingle();
+      // Use edge function to bypass RLS for PIN-based auth
+      const { data, error } = await supabase.functions.invoke('fetch-quote-details', {
+        body: { quoteId }
+      });
+
+      if (error) throw error;
+
+      const { quote, sections: sectionsData, windows: windowsData } = data;
 
       if (!quote) {
         throw new Error("Quote not found");
       }
-
-      if (quoteError) throw quoteError;
-
-      const { data: sectionsData, error: sectionsError } = await supabase
-        .from("sections")
-        .select("*")
-        .eq("quote_id", quoteId)
-        .order("position", { ascending: true });
-
-      if (sectionsError) throw sectionsError;
-
-      const { data: windowsData, error: windowsError } = await supabase
-        .from("windows")
-        .select("*")
-        .in("section_id", sectionsData.map(s => s.id))
-        .order("position", { ascending: true });
-
-      if (windowsError) throw windowsError;
 
       // Populate form with quote data
       setCustomerName(quote.customer_name);

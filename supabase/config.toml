@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.rooms-create]
 verify_jwt = false
+
+[functions.fetch-quote-details]
+verify_jwt = false
