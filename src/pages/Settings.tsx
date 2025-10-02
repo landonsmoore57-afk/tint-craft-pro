@@ -239,7 +239,7 @@ export default function Settings() {
 
           <Button onClick={saveSettings} disabled={loading}>
             <Save className="mr-2 h-4 w-4" />
-            Save Settings
+            {loading ? 'Saving…' : 'Save Settings'}
           </Button>
         </CardContent>
       </Card>
@@ -278,7 +278,7 @@ export default function Settings() {
 
           <Button onClick={saveSettings} disabled={loading}>
             <Save className="mr-2 h-4 w-4" />
-            Save Settings
+            {loading ? 'Saving…' : 'Save Settings'}
           </Button>
         </CardContent>
       </Card>

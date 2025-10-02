@@ -229,7 +229,7 @@ async function fetchLogoAsDataUrl(logoUrl: string | null): Promise<{ dataUrl: st
 }
 
 // Generate monogram fallback
-function generateMonogram(companyName: string, brandColor: string): string {
+function generateMonogram(companyName: string, brandColor: string, brandTint: string, brandShade: string): string {
   const initials = companyName
     .split(' ')
     .map(word => word[0])
@@ -241,14 +241,14 @@ function generateMonogram(companyName: string, brandColor: string): string {
     <div style="
       width: 56px;
       height: 56px;
-      background: ${brandColor};
-      color: white;
+      background: ${brandTint};
+      color: ${brandShade};
       border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
-      font-weight: 700;
+      font-size: 20px;
+      font-weight: 800;
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     ">
       ${initials}
@@ -587,8 +587,8 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
   const formatSqft = (sqft: number) => sqft.toFixed(2);
 
   const brandColor = normalizeBrandColor(settings.brand_color_hex);
-  const brandTint = lightenColor(brandColor, 42);
-  const brandShade = darkenColor(brandColor, 18);
+  const brandTint = lightenColor(brandColor, 50);
+  const brandShade = darkenColor(brandColor, 10);
   const brandPattern = lightenColor(brandColor, 48);
   
   // Theme-specific styling
@@ -611,7 +611,7 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
 
   const logoHtml = logoDataUrl 
     ? `<img src="${logoDataUrl}" alt="${settings.company_name} Logo" style="max-height: 56px; max-width: 200px; object-fit: contain; display: block;">`
-    : generateMonogram(settings.company_name, brandColor);
+    : generateMonogram(settings.company_name, brandColor, brandTint, brandShade);
   
   console.log('Logo HTML generated:', logoDataUrl ? 'Using data URL image' : 'Using monogram');
   console.log('Logo data URL length:', logoDataUrl?.length || 0);
@@ -686,8 +686,9 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
     }
     
     .company-name { 
-      font-size: ${isBold ? '24px' : '20px'}; 
-      font-weight: ${isBold ? '800' : '700'}; 
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
       color: ${isBold ? 'white' : isMinimal ? '#000000' : brandShade};
       margin-bottom: 4px;
     }
@@ -742,7 +743,7 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
     
     .grand-total-amount {
       font-size: 48px;
-      font-weight: 700;
+      font-weight: 900;
       line-height: 1;
     }
     
@@ -811,35 +812,35 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
       gap: 12px;
       margin-bottom: 32px;
       padding: 20px;
-      background: ${brandTint}20;
+      background: ${brandTint};
       border-radius: 12px;
-      border: 1px solid ${brandTint};
+      border: 1px solid ${brandShade}33;
     }
     
     .film-chip {
-      background: white;
-      padding: 10px 16px;
-      border-radius: 8px;
-      border: 1px solid #e2e8f0;
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: ${brandTint};
+      color: ${brandShade};
+      border: 1px solid ${brandShade}33;
+      font-weight: 600;
       font-size: 13px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     
     .film-chip strong {
       color: ${brandShade};
-      font-weight: 600;
+      font-weight: 700;
     }
     
     .vlt-badge {
-      background: ${brandTint};
-      color: ${brandShade};
+      background: ${brandShade};
+      color: white;
       padding: 2px 8px;
       border-radius: 4px;
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
     }
     
     table { 
@@ -853,11 +854,11 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
     }
     
     th { 
-      background: ${brandColor}; 
-      color: white; 
+      background: ${brandTint}; 
+      color: ${brandShade};
       padding: 16px 12px;
       text-align: left;
-      font-weight: 600;
+      font-weight: 700;
       font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -877,15 +878,21 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
       text-align: right;
     }
     
-    tr:nth-child(even) {
-      background: ${brandTint}10;
+    tr:nth-child(odd) {
+      background: ${brandTint}65;
     }
     
     .section-header {
       background: ${brandTint}40 !important;
-      font-weight: 700;
+      font-weight: 800;
       color: ${brandShade};
       font-size: 15px;
+    }
+    
+    .section-title {
+      font-size: 15px;
+      font-weight: 800;
+      margin: 0 0 6px;
     }
     
     .section-header td {
@@ -950,11 +957,18 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
     }
     
     .notes-block {
-      background: #fffbeb;
-      padding: 20px 24px;
-      border-radius: 12px;
-      border-left: 4px solid #f59e0b;
+      background: ${brandTint};
+      padding: 12px 14px;
+      border-radius: 8px;
+      border-left: 4px solid ${brandShade};
       margin-bottom: 32px;
+    }
+    
+    .savings {
+      margin-top: 6px;
+      color: ${brandShade};
+      font-weight: 600;
+      font-size: 15px;
     }
     
     .notes-block h3 {
@@ -1049,6 +1063,9 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
         <div class="grand-total-section">
           <h2>Total Investment ${summaries.length > 1 ? `— ${summary.label}` : ''}</h2>
           <div class="grand-total-amount">${formatCurrency(summary.grand_total)}</div>
+          ${summary.total_savings > 0 ? `
+            <div class="savings">You saved ${formatCurrency(summary.total_savings)} on this quote.</div>
+          ` : ''}
           ${summary.deposit_due > 0 ? `
             <div class="deposit-info">Deposit Due: ${formatCurrency(summary.deposit_due)}</div>
           ` : ''}

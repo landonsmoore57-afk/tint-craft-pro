@@ -77,6 +77,19 @@ export default function Jobs() {
 
   const isTinter = role === 'tinter';
 
+  // Restore scroll position on mount
+  useEffect(() => {
+    const pos = sessionStorage.getItem('jobs:scrollY');
+    if (pos) window.scrollTo(0, Number(pos));
+  }, []);
+
+  // Save scroll position
+  useEffect(() => {
+    const onScroll = () => sessionStorage.setItem('jobs:scrollY', String(window.scrollY));
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   useEffect(() => {
     fetchJobs();
   }, [dateRange]);
@@ -244,7 +257,7 @@ export default function Jobs() {
   );
 
   return (
-    <div className="space-y-6 pb-24 md:pb-6">
+    <div className="space-y-6 pb-24 md:pb-6" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
       {/* Desktop Header */}
       <div className="hidden md:flex items-center justify-between">
         <div>
