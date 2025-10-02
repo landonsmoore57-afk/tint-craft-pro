@@ -333,8 +333,6 @@ export default function QuoteBuilder() {
         title: "Success",
         description: id && id !== "new" ? "Quote updated successfully" : "Quote created successfully",
       });
-
-      navigate("/");
     } catch (error: any) {
       console.error('Save quote error:', error);
       toast({
