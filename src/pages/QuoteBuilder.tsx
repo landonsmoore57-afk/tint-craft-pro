@@ -248,77 +248,37 @@ export default function QuoteBuilder() {
 
       // Base quote data
       const quoteData: any = {
-        customer_name: customerName,
-        customer_email: customerEmail || null,
-        customer_phone: customerPhone || null,
-        site_address: siteAddress || null,
-        status,
-        global_film_id: globalFilmId,
-        discount_flat: parseFloat(discountFlat) || 0,
-        discount_percent: parseFloat(discountPercent) || 0,
-        tax_percent: parseFloat(taxPercent) || 0,
-        travel_fee: parseFloat(travelFee) || 0,
-        deposit_percent: parseFloat(depositPercent) || 0,
-        travel_taxable: travelTaxable,
-        notes_internal: notesInternal || null,
-        notes_customer: notesCustomer || null,
-      };
-
-      // Only set created_by and quote_number for new quotes
-      if (!id || id === "new") {
-        quoteData.created_by = userId;
-        quoteData.quote_number = `Q-${Date.now()}`;
-      } else {
-        quoteData.id = id;
-      }
-
-      // Prepare sections data
-      const sectionsData = sections.map((section, sIndex) => ({
-        name: section.name,
-        room_id: section.room_id,
-        custom_room_name: section.custom_room_name,
-        section_film_id: section.section_film_id,
-        position: sIndex,
-        windows: section.windows.map((window, wIndex) => ({
-          label: window.label,
-          width_in: window.width_in,
-          height_in: window.height_in,
-          quote_width_in: window.quote_width_in || null,
-          quote_height_in: window.quote_height_in || null,
-          quantity: window.quantity,
-          waste_factor_percent: window.waste_factor_percent,
-          window_film_id: window.window_film_id,
-          override_sell_per_sqft: window.override_sell_per_sqft,
-          position: wIndex,
+...
         })),
       }));
 
-      // Get the APP_INTERNAL_TOKEN from the secret we added
+      // Direct fetch to save-quote function
+      const functionsUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '') + '/functions/v1';
       const appToken = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       
-      console.log('Calling save-quote function...');
-
-      // Call the edge function
-      const { data, error } = await supabase.functions.invoke('save-quote', {
-        body: { quote: quoteData, sections: sectionsData },
+      const res = await fetch(`${functionsUrl}/save-quote`, {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'x-app-token': appToken,
           'x-app-actor-id': userId,
         },
+        body: JSON.stringify({ quote: quoteData, sections: sectionsData }),
       });
 
-      console.log('Save response:', { data, error });
+      let body: any = {};
+      try { body = await res.json(); } catch { /* ignore */ }
 
-      if (error) {
-        console.error('Supabase function error:', error);
-        throw error;
+      if (!res.ok) {
+        if (res.status === 401 || body?.code === 'BAD_TOKEN') {
+          throw new Error('Authentication failed. Please refresh and try again.');
+        }
+        if (res.status === 404) {
+          throw new Error('Save function not found. Please contact support.');
+        }
+        throw new Error(body?.error || `Save failed (HTTP ${res.status})`);
       }
-      
-      if (!data?.ok) {
-        const errorMsg = data?.error || 'Save failed';
-        console.error('Save failed:', errorMsg);
-        throw new Error(errorMsg);
-      }
+      if (!body?.ok) throw new Error(body?.error || 'Save failed');
 
       toast({
         title: "Success",
