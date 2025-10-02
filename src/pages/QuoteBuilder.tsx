@@ -241,7 +241,7 @@ export default function QuoteBuilder() {
       setLoading(true);
 
       // Get the current user ID from localStorage (PIN auth)
-      const userId = localStorage.getItem('userId');
+      const userId = localStorage.getItem('user_id');
       if (!userId) {
         throw new Error("Not authenticated - please log in again");
       }
