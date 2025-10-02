@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { WindowSizeRollup, formatSqft, formatRollPlan } from "@/lib/quoteCalculations";
 import { Maximize2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -35,7 +36,16 @@ export function WindowSummary({ rollup }: WindowSummaryProps) {
             {rollup.map((item, idx) => (
               <TableRow key={idx}>
                 <TableCell className="text-sm font-medium">{item.film_display}</TableCell>
-                <TableCell className="font-mono">{item.width_in}×{item.height_in}</TableCell>
+                <TableCell className="font-mono">
+                  <div className="flex items-center gap-2">
+                    {item.width_in}×{item.height_in}
+                    {item.uses_quote_dims && (
+                      <Badge variant="secondary" className="text-[10px] px-1 py-0 font-semibold">
+                        Quote dims
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell className="text-right font-semibold">{item.total_qty}</TableCell>
                 <TableCell className="text-sm">
                   <TooltipProvider>

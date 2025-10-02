@@ -24,6 +24,8 @@ export interface WindowData {
   label: string;
   width_in: number;
   height_in: number;
+  quote_width_in?: number | null;
+  quote_height_in?: number | null;
   quantity: number;
   waste_factor_percent: number;
   window_film_id: string | null;
@@ -57,6 +59,7 @@ export interface WindowCalculation extends WindowData {
   line_total: number;
   linear_feet: number;
   is_security: boolean;
+  used_dims: 'quote' | 'exact';
 }
 
 export interface SectionCalculation extends Omit<SectionData, 'windows'> {
@@ -97,6 +100,7 @@ export interface WindowSizeRollup {
   area_sqft_each: number;
   film_id: string | null;
   film_display: string;
+  uses_quote_dims?: boolean;
   roll_plan?: RollPlan | { error: string };
 }
 
@@ -161,19 +165,37 @@ export function calculateQuote(
     return null;
   };
 
+  // Helper to resolve dimensions (Quote if present, else Exact)
+  const resolveDims = (window: WindowData) => {
+    const useQuote = (window.quote_width_in != null && window.quote_height_in != null);
+    const width = useQuote ? window.quote_width_in! : window.width_in;
+    const height = useQuote ? window.quote_height_in! : window.height_in;
+    return { width, height, used: useQuote ? 'quote' as const : 'exact' as const };
+  };
+
   // Calculate window line items
   const calculatedSections: SectionCalculation[] = quoteData.sections.map(section => {
     const calculatedWindows: WindowCalculation[] = section.windows.map(window => {
       // Basic validation
       if (window.width_in <= 0 || window.height_in <= 0) {
-        validation_errors.push(`Window "${window.label}" has invalid dimensions`);
+        validation_errors.push(`Window "${window.label}" has invalid exact dimensions`);
+      }
+      if (window.quote_width_in != null && window.quote_height_in != null) {
+        if (window.quote_width_in <= 0 || window.quote_height_in <= 0) {
+          validation_errors.push(`Window "${window.label}" has invalid quote dimensions`);
+        }
+      } else if (window.quote_width_in != null || window.quote_height_in != null) {
+        validation_errors.push(`Window "${window.label}" has incomplete quote dimensions (both required)`);
       }
       if (window.quantity <= 0) {
         validation_errors.push(`Window "${window.label}" has invalid quantity`);
       }
 
-      // Calculate area
-      const area_sqft = (window.width_in * window.height_in) / 144;
+      // Resolve dimensions for pricing
+      const { width, height, used } = resolveDims(window);
+
+      // Calculate area using resolved dimensions
+      const area_sqft = (width * height) / 144;
       const line_area_sqft = area_sqft * window.quantity;
       const effective_area_sqft = line_area_sqft * (1 + window.waste_factor_percent / 100);
 
@@ -190,7 +212,7 @@ export function calculateQuote(
       // Calculate line total
       const line_total = effective_area_sqft * sell_per_sqft;
 
-      // Calculate linear feet for security film (perimeter-based)
+      // Calculate linear feet for security film (perimeter-based) - ALWAYS use exact dimensions for materials
       const is_security = resolved_film?.security_film ?? false;
       const linear_feet = is_security 
         ? window.quantity * (2 * (window.width_in + window.height_in) / 12)
@@ -205,6 +227,7 @@ export function calculateQuote(
         line_total,
         linear_feet,
         is_security,
+        used_dims: used,
       };
     });
 
@@ -304,16 +327,19 @@ export function calculateQuote(
     validation_errors.push('Materials pricing missing for Caulk');
   }
 
-  // Window size rollup - grouped by size AND film
-  const sizeMap = new Map<string, { w: number; h: number; qty: number; film_id: string | null; film_display: string }>();
+  // Window size rollup - grouped by size AND film (using resolved dimensions for pricing display)
+  const sizeMap = new Map<string, { w: number; h: number; qty: number; film_id: string | null; film_display: string; uses_quote_dims: boolean }>();
   for (const section of calculatedSections) {
     for (const win of section.windows) {
+      const useQuoteDims = win.used_dims === 'quote';
+      const width = useQuoteDims ? win.quote_width_in! : win.width_in;
+      const height = useQuoteDims ? win.quote_height_in! : win.height_in;
       const film_id = win.resolved_film?.id ?? null;
       const film_display = win.resolved_film 
         ? `${win.resolved_film.brand} ${win.resolved_film.series} ${win.resolved_film.name}${win.resolved_film.vlt != null ? ` ${win.resolved_film.vlt}%` : ''}`
         : 'No Film';
-      const key = `${win.width_in}x${win.height_in}|${film_id ?? 'none'}`;
-      const item = sizeMap.get(key) ?? { w: win.width_in, h: win.height_in, qty: 0, film_id, film_display };
+      const key = `${width}x${height}|${film_id ?? 'none'}`;
+      const item = sizeMap.get(key) ?? { w: width, h: height, qty: 0, film_id, film_display, uses_quote_dims: useQuoteDims };
       item.qty += Math.max(1, win.quantity || 1);
       sizeMap.set(key, item);
     }
@@ -326,6 +352,7 @@ export function calculateQuote(
       area_sqft_each: +((i.w * i.h) / 144).toFixed(2),
       film_id: i.film_id,
       film_display: i.film_display,
+      uses_quote_dims: i.uses_quote_dims,
       roll_plan: pickRollForSize(i.w, i.h, rollConfig),
     }))
     .sort((a, b) => 

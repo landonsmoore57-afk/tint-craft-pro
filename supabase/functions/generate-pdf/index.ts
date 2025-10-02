@@ -368,14 +368,21 @@ Deno.serve(async (req) => {
       const calculatedWindows: any[] = [];
 
       for (const window of sectionWindows) {
-        const areaSqft = (window.width_in * window.height_in) / 144;
+        // Resolve dimensions: use quote dims if present, otherwise use exact
+        const useQuoteDims = window.quote_width_in != null && window.quote_height_in != null;
+        const width = useQuoteDims ? window.quote_width_in : window.width_in;
+        const height = useQuoteDims ? window.quote_height_in : window.height_in;
+        const usedDims = useQuoteDims ? 'quote' : 'exact';
+
+        // Calculate area using resolved dimensions
+        const areaSqft = (width * height) / 144;
         const lineAreaSqft = areaSqft * window.quantity;
         const effectiveAreaSqft = lineAreaSqft * (1 + window.waste_factor_percent / 100);
         const resolvedFilm = resolveFilm(window.window_film_id, section.section_film_id, quote.global_film_id);
         const sellPerSqft = window.override_sell_per_sqft ?? resolvedFilm?.sell_per_sqft ?? 0;
         const lineTotal = effectiveAreaSqft * sellPerSqft;
         
-        // Calculate linear feet for security film
+        // Calculate linear feet for security film - ALWAYS use exact dimensions for materials
         const isSecurity = resolvedFilm?.security_film ?? false;
         const linearFeet = isSecurity 
           ? window.quantity * (2 * (window.width_in + window.height_in) / 12)
@@ -399,6 +406,7 @@ Deno.serve(async (req) => {
           linear_feet: linearFeet,
           is_security: isSecurity,
           has_override: hasOverride,
+          used_dims: usedDims,
         });
 
         windowsSubtotal += lineTotal;
@@ -456,12 +464,15 @@ Deno.serve(async (req) => {
       ...(caulk ? [calculateSummary('caulk', 'Caulk', caulk.sell_per_linear_ft)] : []),
     ];
 
-    // Window size rollup
-    const sizeMap = new Map<string, { w: number; h: number; qty: number }>();
+    // Window size rollup - use resolved dimensions for pricing display
+    const sizeMap = new Map<string, { w: number; h: number; qty: number; uses_quote: boolean }>();
     for (const section of calculatedSections) {
       for (const win of section.windows) {
-        const key = `${win.width_in}x${win.height_in}`;
-        const item = sizeMap.get(key) ?? { w: win.width_in, h: win.height_in, qty: 0 };
+        const useQuoteDims = win.used_dims === 'quote';
+        const width = useQuoteDims ? win.quote_width_in : win.width_in;
+        const height = useQuoteDims ? win.quote_height_in : win.height_in;
+        const key = `${width}x${height}`;
+        const item = sizeMap.get(key) ?? { w: width, h: height, qty: 0, uses_quote: useQuoteDims };
         item.qty += Math.max(1, win.quantity || 1);
         sizeMap.set(key, item);
       }
@@ -473,6 +484,7 @@ Deno.serve(async (req) => {
         height_in: i.h,
         total_qty: i.qty,
         area_sqft_each: +((i.w * i.h) / 144).toFixed(2),
+        uses_quote_dims: i.uses_quote,
         roll_plan: pickRollForSize(i.w, i.h, rollConfig),
       }))
       .sort((a, b) => b.area_sqft_each - a.area_sqft_each || (a.width_in * a.height_in) - (b.width_in * b.height_in));
@@ -1173,11 +1185,15 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
             </span>
           </td>
         </tr>
-        ${section.windows.map((window: any) => `
+        ${section.windows.map((window: any) => {
+          const displayWidth = window.used_dims === 'quote' ? window.quote_width_in : window.width_in;
+          const displayHeight = window.used_dims === 'quote' ? window.quote_height_in : window.height_in;
+          const quoteDimsChip = window.used_dims === 'quote' ? '<span class="chip">Quote dims</span>' : '';
+          return `
           <tr>
             <td></td>
-            <td>${window.label}</td>
-            <td>${window.width_in}" × ${window.height_in}"</td>
+            <td>${window.label} ${quoteDimsChip}</td>
+            <td>${displayWidth}" × ${displayHeight}"</td>
             <td>${window.quantity}</td>
             <td>${formatSqft(window.effective_area_sqft)}</td>
             <td>
@@ -1186,7 +1202,8 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
             </td>
             <td>${formatCurrency(window.line_total)}</td>
           </tr>
-        `).join('')}
+        `;
+        }).join('')}
         <tr class="section-total">
           <td colspan="6" style="text-align: right; padding-right: 12px;">Section Total:</td>
           <td>${formatCurrency(section.section_total)}</td>
@@ -1268,6 +1285,11 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
           </svg>
           Window Summary
         </h3>
+        ${windowSizeRollup.some((item: any) => item.uses_quote_dims) ? `
+          <p style="font-size: 12px; color: #64748b; margin-bottom: 12px; padding: 8px 12px; background: ${brandTint}20; border-radius: 6px; border-left: 3px solid ${brandColor};">
+            <strong>Note:</strong> "Quote dims" indicates pricing based on adjusted dimensions. Jobs will use exact measured dimensions.
+          </p>
+        ` : ''}
         <table style="width: 100%; border-collapse: collapse;">
           <thead>
             <tr style="background: ${brandTint}20; border-bottom: 2px solid ${brandTint};">
@@ -1278,14 +1300,17 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
             </tr>
           </thead>
           <tbody>
-            ${windowSizeRollup.map((item: any, i: number) => `
+            ${windowSizeRollup.map((item: any, i: number) => {
+              const quoteDimsChip = item.uses_quote_dims ? '<span class="chip">Quote dims</span>' : '';
+              return `
               <tr style="${i % 2 === 1 ? `background: ${brandTint}10;` : ''}">
-                <td style="padding: 10px; font-family: monospace;">${item.width_in}×${item.height_in}</td>
+                <td style="padding: 10px; font-family: monospace;">${item.width_in}×${item.height_in} ${quoteDimsChip}</td>
                 <td style="padding: 10px; text-align: right; font-family: monospace;">${formatSqft(item.area_sqft_each)}</td>
                 <td style="padding: 10px; text-align: right; font-weight: 600;">${item.total_qty}</td>
                 <td style="padding: 10px; font-size: 12px;">${formatRollPlan(item.roll_plan)}</td>
               </tr>
-            `).join('')}
+            `;
+            }).join('')}
           </tbody>
         </table>
       </div>

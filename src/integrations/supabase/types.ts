@@ -448,6 +448,8 @@ export type Database = {
           override_sell_per_sqft: number | null
           position: number | null
           quantity: number | null
+          quote_height_in: number | null
+          quote_width_in: number | null
           section_id: string
           updated_at: string | null
           waste_factor_percent: number | null
@@ -463,6 +465,8 @@ export type Database = {
           override_sell_per_sqft?: number | null
           position?: number | null
           quantity?: number | null
+          quote_height_in?: number | null
+          quote_width_in?: number | null
           section_id: string
           updated_at?: string | null
           waste_factor_percent?: number | null
@@ -478,6 +482,8 @@ export type Database = {
           override_sell_per_sqft?: number | null
           position?: number | null
           quantity?: number | null
+          quote_height_in?: number | null
+          quote_width_in?: number | null
           section_id?: string
           updated_at?: string | null
           waste_factor_percent?: number | null
