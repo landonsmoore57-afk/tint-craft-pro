@@ -81,18 +81,27 @@ export default function QuoteBuilder() {
 
   const loadDefaultFilm = async () => {
     try {
-      const { data, error } = await supabase
+      // Get company settings
+      const { data: settings, error: settingsError } = await supabase
         .from("company_settings")
-        .select("default_film_id, films:default_film_id(id, brand, series, name, vlt, active)")
+        .select("default_film_id")
         .limit(1)
         .maybeSingle();
 
-      if (error && error.code !== "PGRST116") throw error;
+      if (settingsError && settingsError.code !== "PGRST116") throw settingsError;
 
-      if (data?.default_film_id && data.films) {
-        const film = data.films as any;
-        if (film.active) {
-          setGlobalFilmId(data.default_film_id);
+      // If there's a default film ID, fetch the film details
+      if (settings?.default_film_id) {
+        const { data: film, error: filmError } = await supabase
+          .from("films")
+          .select("id, brand, series, name, vlt, active")
+          .eq("id", settings.default_film_id)
+          .single();
+
+        if (filmError) throw filmError;
+
+        if (film && film.active) {
+          setGlobalFilmId(film.id);
           setDefaultFilmName(`${film.brand} ${film.series} ${film.name}${film.vlt ? ` ${film.vlt}` : ''}`);
           setShowDefaultFilmBanner(true);
         }
