@@ -265,6 +265,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "quotes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "quotes_global_film_id_fkey"
             columns: ["global_film_id"]
             isOneToOne: false
