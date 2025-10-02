@@ -63,7 +63,6 @@ Deno.serve(async (req) => {
         .from('film_usage_ranking')
         .select('id, brand, series, name, vlt, sku, active, cost_per_sqft, sell_per_sqft, security_film, notes')
         .eq('active', true)
-        .eq('is_featured', false)
         .order('usage_score', { ascending: false })
         .order('brand', { ascending: true })
         .order('series', { ascending: true })
