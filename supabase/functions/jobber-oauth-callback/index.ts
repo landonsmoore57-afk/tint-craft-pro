@@ -27,7 +27,8 @@ Deno.serve(async (req) => {
     }
 
     // Extract user ID and return URL from state
-    const stateParts = state.split(':');
+    // Split by | to avoid issues with : in URLs
+    const stateParts = state.split('|');
     const userId = stateParts[0];
     const returnUrl = stateParts[1];
     
@@ -97,7 +98,7 @@ Deno.serve(async (req) => {
     // Try to get return URL from state if available
     const url = new URL(req.url);
     const state = url.searchParams.get('state');
-    const returnUrl = state?.split(':')[1] || url.origin;
+    const returnUrl = state?.split('|')[1] || url.origin;
     return htmlError(error?.message || 'OAuth callback failed', `${returnUrl}/settings?jobber=error`);
   }
 });

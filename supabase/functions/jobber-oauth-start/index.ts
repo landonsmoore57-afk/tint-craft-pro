@@ -33,7 +33,8 @@ Deno.serve(async (req) => {
     }
 
     // Generate state parameter to verify callback (includes return URL)
-    const state = `${userId}:${returnUrl}:${crypto.randomUUID()}`;
+    // Use | as delimiter to avoid issues with : in URLs
+    const state = `${userId}|${returnUrl}|${crypto.randomUUID()}`;
 
     const AUTH_URL = 'https://api.getjobber.com/api/oauth/authorize';
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
