@@ -226,20 +226,17 @@ Deno.serve(async (req) => {
       console.log('Client created:', clientId);
     }
 
-    // 8. Get properties for this client
+    // 8. Get properties for this client (CORRECTED)
     console.log('=== Getting/Creating Property ===');
     
     try {
+      // Properties is a simple array, not a connection
       const propertiesQuery = `
-        query GetClientProperties($clientId: ID!) {
+        query GetClientProperties($clientId: EncodedId!) {
           client(id: $clientId) {
             id
-            properties(first: 1) {
-              edges {
-                node {
-                  id
-                }
-              }
+            properties {
+              id
             }
           }
         }
@@ -249,10 +246,10 @@ Deno.serve(async (req) => {
         clientId 
       });
 
-      const propertyEdges = propertiesResult?.client?.properties?.edges || [];
+      const properties = propertiesResult?.client?.properties || [];
       
-      if (propertyEdges.length > 0) {
-        propertyId = propertyEdges[0].node.id;
+      if (properties.length > 0) {
+        propertyId = properties[0].id;
         console.log('Found existing property:', propertyId);
       }
     } catch (e: any) {
@@ -260,14 +257,15 @@ Deno.serve(async (req) => {
       // Will create new property below
     }
 
-    // Create property if none exists
+    // Create property if none exists (CORRECTED)
     if (!propertyId) {
       console.log('Creating new property...');
       
+      // clientId is a SEPARATE argument, not in input
       const propertyMutation = `
-        mutation CreateProperty($input: PropertyCreateInput!) {
-          propertyCreate(input: $input) {
-            property {
+        mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
+          propertyCreate(clientId: $clientId, input: $input) {
+            properties {
               id
             }
             userErrors {
@@ -278,9 +276,7 @@ Deno.serve(async (req) => {
         }
       `;
 
-      const propertyInput: any = {
-        clientId: clientId,
-      };
+      const propertyInput: any = {};
       
       // Add address if available
       if (quote.site_address) {
@@ -290,6 +286,7 @@ Deno.serve(async (req) => {
       }
 
       const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { 
+        clientId: clientId,
         input: propertyInput
       });
 
@@ -299,13 +296,15 @@ Deno.serve(async (req) => {
         return json({ ok: false, error: `Failed to create property: ${errors}` }, 400);
       }
 
-      propertyId = propertyResult.propertyCreate?.property?.id;
+      // Returns 'properties' (plural array), not 'property'
+      const properties = propertyResult.propertyCreate?.properties || [];
       
-      if (!propertyId) {
-        console.error('No property ID returned');
+      if (properties.length === 0) {
+        console.error('No property returned from creation');
         return json({ ok: false, error: 'Failed to create property for quote' }, 400);
       }
       
+      propertyId = properties[0].id;
       console.log('Property created:', propertyId);
     }
 
@@ -355,7 +354,7 @@ Deno.serve(async (req) => {
       ]
     };
 
-    console.log('Creating quote with total:', formatCurrency(grandTotal));
+    console.log('Creating quote with input:', JSON.stringify(quoteInput, null, 2));
 
     const quoteResult = await jobberGraphQL(JOBBER_API, headers, quoteMutation, {
       input: quoteInput
@@ -374,7 +373,7 @@ Deno.serve(async (req) => {
     }
 
     console.log('=== SUCCESS ===');
-    console.log('Jobber quote created:', jobberQuote.id, jobberQuote.quoteNumber);
+    console.log('Jobber quote created:', jobberQuote.id, 'Quote Number:', jobberQuote.quoteNumber);
 
     return json({ 
       ok: true, 
@@ -382,7 +381,7 @@ Deno.serve(async (req) => {
       clientId,
       propertyId,
       total: formatCurrency(grandTotal),
-      message: `Quote #${jobberQuote.quoteNumber} created in Jobber`
+      message: `Quote #${jobberQuote.quoteNumber} created in Jobber with total ${formatCurrency(grandTotal)}`
     });
 
   } catch (error: any) {
