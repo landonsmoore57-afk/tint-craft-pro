@@ -257,16 +257,13 @@ Deno.serve(async (req) => {
       // Will create new property below
     }
 
-    // Create property if none exists (with detailed logging)
+    // Create property if none exists
     if (!propertyId) {
       console.log('Creating new property...');
       
       const propertyMutation = `
         mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
           propertyCreate(clientId: $clientId, input: $input) {
-            property {
-              id
-            }
             properties {
               id
             }
@@ -278,8 +275,6 @@ Deno.serve(async (req) => {
         }
       `;
 
-      // PropertyCreateInput doesn't accept address field
-      // Create with empty input - address can be added later if needed
       const propertyInput: any = {};
 
       const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { 
@@ -287,7 +282,6 @@ Deno.serve(async (req) => {
         input: propertyInput
       });
 
-      // Log the full response to see structure
       console.log('Property creation response:', JSON.stringify(propertyResult, null, 2));
 
       if (propertyResult.propertyCreate?.userErrors?.length) {
@@ -296,55 +290,20 @@ Deno.serve(async (req) => {
         return json({ ok: false, error: `Failed to create property: ${errors}` }, 400);
       }
 
-      // Try multiple possible response structures
-      if (propertyResult.propertyCreate?.property?.id) {
-        // Singular 'property'
-        propertyId = propertyResult.propertyCreate.property.id;
-        console.log('Property created (singular):', propertyId);
-      } else if (propertyResult.propertyCreate?.properties?.length > 0) {
-        // Plural 'properties' array
-        propertyId = propertyResult.propertyCreate.properties[0].id;
-        console.log('Property created (plural array):', propertyId);
-      } else {
-        // Property was created but not returned - query for it
-        console.log('Property created but not in response, querying for it...');
-        
-        try {
-          const propertiesQuery = `
-            query GetClientProperties($clientId: EncodedId!) {
-              client(id: $clientId) {
-                properties {
-                  id
-                }
-              }
-            }
-          `;
-
-          const propertiesResult = await jobberGraphQL(JOBBER_API, headers, propertiesQuery, { 
-            clientId 
-          });
-
-          const properties = propertiesResult?.client?.properties || [];
-          
-          if (properties.length > 0) {
-            // Get the most recently created property (last one)
-            propertyId = properties[properties.length - 1].id;
-            console.log('Found property after creation:', propertyId);
-          }
-        } catch (e: any) {
-          console.error('Failed to query for created property:', e.message);
-        }
-      }
+      // PropertyCreatePayload returns 'properties' (plural array)
+      const properties = propertyResult.propertyCreate?.properties || [];
       
-      if (!propertyId) {
-        console.error('Could not get property ID after creation');
-        console.error('Full response:', JSON.stringify(propertyResult, null, 2));
+      if (properties.length === 0) {
+        console.error('Property creation succeeded but returned empty array');
         return json({ 
           ok: false, 
-          error: 'Property creation succeeded but could not retrieve property ID. Please check Jobber and try again.',
+          error: 'Property creation succeeded but no property was returned',
           debug: propertyResult
         }, 400);
       }
+      
+      propertyId = properties[0].id;
+      console.log('Property created successfully:', propertyId);
     }
 
     // 9. Create quote in Jobber
