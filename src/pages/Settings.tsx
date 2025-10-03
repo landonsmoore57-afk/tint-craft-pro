@@ -7,11 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Upload, X } from "lucide-react";
+import { Save, Upload, X, ExternalLink, CheckCircle2, AlertCircle } from "lucide-react";
 import { FilmSelector } from "@/components/quote/FilmSelector";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Settings() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [companyName, setCompanyName] = useState("");
   const [brandColor, setBrandColor] = useState("#0891B2");
@@ -21,9 +23,32 @@ export default function Settings() {
   const [tagline, setTagline] = useState("");
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [defaultFilmId, setDefaultFilmId] = useState<string | null>(null);
+  const [jobberConnected, setJobberConnected] = useState(false);
+  const [checkingJobber, setCheckingJobber] = useState(false);
 
   useEffect(() => {
     loadSettings();
+    checkJobberConnection();
+    
+    // Check for OAuth callback status
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('jobber') === 'connected') {
+      toast({
+        title: "Jobber Connected",
+        description: "Successfully connected to Jobber",
+      });
+      setJobberConnected(true);
+      // Clean URL
+      window.history.replaceState({}, '', '/settings');
+    } else if (params.get('jobber') === 'error') {
+      toast({
+        title: "Connection Failed",
+        description: "Failed to connect to Jobber. Please try again.",
+        variant: "destructive",
+      });
+      // Clean URL
+      window.history.replaceState({}, '', '/settings');
+    }
   }, []);
 
   const loadSettings = async () => {
@@ -102,6 +127,67 @@ export default function Settings() {
     } catch (error: any) {
       toast({
         title: "Upload failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkJobberConnection = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setCheckingJobber(true);
+      const { data, error } = await supabase
+        .from("integration_jobber_tokens")
+        .select("id")
+        .eq("account_id", user.id)
+        .maybeSingle();
+      
+      setJobberConnected(!!data);
+    } catch (error) {
+      console.error("Error checking Jobber connection:", error);
+    } finally {
+      setCheckingJobber(false);
+    }
+  };
+
+  const handleConnectJobber = () => {
+    if (!user?.id) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to connect Jobber",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const startUrl = `${window.location.origin}/jobber-oauth-start?user_id=${user.id}`;
+    window.location.href = startUrl;
+  };
+
+  const handleDisconnectJobber = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from("integration_jobber_tokens")
+        .delete()
+        .eq("account_id", user.id);
+      
+      if (error) throw error;
+      
+      setJobberConnected(false);
+      toast({
+        title: "Jobber Disconnected",
+        description: "Successfully disconnected from Jobber",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Disconnect Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -280,6 +366,66 @@ export default function Settings() {
             <Save className="mr-2 h-4 w-4" />
             {loading ? 'Saving…' : 'Save Settings'}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Integrations</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Label className="text-base">Jobber</Label>
+                {checkingJobber ? (
+                  <span className="text-sm text-muted-foreground">Checking...</span>
+                ) : jobberConnected ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                )}
+              </div>
+              {jobberConnected ? (
+                <span className="text-sm text-green-600 font-medium">Connected</span>
+              ) : (
+                <span className="text-sm text-muted-foreground">Not connected</span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Connect your Jobber account to push quotes directly to Jobber as clients, properties, and quote estimates.
+            </p>
+            {jobberConnected ? (
+              <div className="flex gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleDisconnectJobber}
+                  disabled={loading}
+                >
+                  Disconnect Jobber
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => window.open('https://secure.getjobber.com', '_blank')}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open Jobber
+                </Button>
+              </div>
+            ) : (
+              <Button 
+                type="button" 
+                onClick={handleConnectJobber}
+                disabled={loading || checkingJobber}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Connect to Jobber
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

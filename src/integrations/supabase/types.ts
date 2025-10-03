@@ -125,6 +125,47 @@ export type Database = {
         }
         Relationships: []
       }
+      integration_jobber_tokens: {
+        Row: {
+          access_token: string
+          account_id: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          jobber_account_id: string | null
+          refresh_token: string
+          updated_at: string | null
+        }
+        Insert: {
+          access_token: string
+          account_id: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          jobber_account_id?: string | null
+          refresh_token: string
+          updated_at?: string | null
+        }
+        Update: {
+          access_token?: string
+          account_id?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          jobber_account_id?: string | null
+          refresh_token?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_jobber_tokens_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_assignments: {
         Row: {
           assigned_by: string | null

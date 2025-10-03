@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Save, ArrowLeft, Download, X, Info } from "lucide-react";
+import { Plus, Save, ArrowLeft, Download, X, Info, ExternalLink } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -18,15 +18,19 @@ import { RoomsSummary } from "@/components/quote/RoomsSummary";
 import { calculateQuote, FilmData, MaterialData, RoomData, SectionData, WindowData, formatCurrency } from "@/lib/quoteCalculations";
 import { format } from "date-fns";
 import { FilmSelector } from "@/components/quote/FilmSelector";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function QuoteBuilder() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(id && id !== "new");
   const [films, setFilms] = useState<FilmData[]>([]);
   const [materials, setMaterials] = useState<MaterialData[]>([]);
   const [rooms, setRooms] = useState<RoomData[]>([]);
+  const [jobberConnected, setJobberConnected] = useState(false);
+  const [pushingToJobber, setPushingToJobber] = useState(false);
 
   // Quote header data
   const [customerName, setCustomerName] = useState("");
@@ -74,6 +78,9 @@ export default function QuoteBuilder() {
         // Load default film for new quotes
         await loadDefaultFilm();
       }
+      
+      // Check Jobber connection
+      await checkJobberConnection();
     };
     
     initializeQuote();
@@ -485,6 +492,71 @@ export default function QuoteBuilder() {
     }
   };
 
+  const checkJobberConnection = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const { data } = await supabase
+        .from("integration_jobber_tokens")
+        .select("id")
+        .eq("account_id", user.id)
+        .maybeSingle();
+      
+      setJobberConnected(!!data);
+    } catch (error) {
+      console.error("Error checking Jobber connection:", error);
+    }
+  };
+
+  const pushToJobber = async () => {
+    if (!id || id === "new") {
+      toast({
+        title: "Save first",
+        description: "Please save the quote before pushing to Jobber",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!jobberConnected) {
+      toast({
+        title: "Connect Jobber",
+        description: "Please connect Jobber in Settings first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setPushingToJobber(true);
+
+      const { data, error } = await supabase.functions.invoke('jobber-push-quote', {
+        body: { 
+          quoteId: id,
+        },
+      });
+
+      if (error) throw error;
+
+      if (!data?.ok) {
+        throw new Error(data?.error || 'Failed to push quote to Jobber');
+      }
+
+      toast({
+        title: "Pushed to Jobber",
+        description: "Quote successfully created in Jobber",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Push to Jobber failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setPushingToJobber(false);
+    }
+  };
+
   // Calculate quote totals
   const calculation = calculateQuote(
     {
@@ -521,6 +593,16 @@ export default function QuoteBuilder() {
           </div>
         </div>
         <div className="flex gap-2">
+          {jobberConnected && id && id !== "new" && (
+            <Button 
+              onClick={pushToJobber} 
+              disabled={pushingToJobber || loading}
+              variant="outline"
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              {pushingToJobber ? 'Pushing...' : 'Push to Jobber'}
+            </Button>
+          )}
           <Button onClick={saveQuote} disabled={loading}>
             <Save className="mr-2 h-4 w-4" />
             Save Quote
