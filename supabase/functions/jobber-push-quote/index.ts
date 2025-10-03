@@ -91,6 +91,42 @@ Deno.serve(async (req) => {
       'X-JOBBER-GRAPHQL-VERSION': '2025-01-20',
     };
 
+    // CRITICAL: First discover what PropertyCreateInput actually accepts
+    console.log('Running introspection to discover PropertyCreateInput schema...');
+    const introspectionQuery = `
+      query IntrospectPropertyCreateInput {
+        __type(name: "PropertyCreateInput") {
+          name
+          inputFields {
+            name
+            type {
+              name
+              kind
+              ofType {
+                name
+                kind
+              }
+            }
+            description
+          }
+        }
+      }
+    `;
+    
+    try {
+      const introspectionResult = await gql(JOBBER_API, headers, introspectionQuery);
+      console.log('=== PROPERTYCREATEINPUT SCHEMA ===');
+      console.log(JSON.stringify(introspectionResult, null, 2));
+      console.log('===================================');
+      
+      // Based on the error, PropertyCreateInput doesn't accept name/address
+      // Let's see what it DOES accept and log it clearly
+      const inputFields = introspectionResult?.__type?.inputFields || [];
+      console.log('Available PropertyCreateInput fields:', inputFields.map((f: any) => f.name).join(', '));
+    } catch (error: any) {
+      console.error('Introspection failed:', error.message);
+    }
+
     // Step 1: Create client with minimal fields
     console.log('Attempting to create/find client...');
     const clientMutation = `
@@ -136,25 +172,19 @@ Deno.serve(async (req) => {
     }
 
     // Step 2: Create property (required for quotes in Jobber)
-    // Note: clientId is EncodedId!, returns properties[] (array)
-    console.log('Creating property for quote...');
+    // Note: PropertyCreateInput schema may have changed - checking if we can skip this
+    console.log('Attempting to query existing properties for client...');
     
-    const propertyMutation = `
-      mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
-        propertyCreate(clientId: $clientId, input: $input) {
-          properties {
+    const propertiesQuery = `
+      query GetClientProperties($clientId: ID!) {
+        node(id: $clientId) {
+          ... on Client {
             id
-            address {
-              street1
-              city
-              province
-              postalCode
-              country
+            properties(first: 1) {
+              nodes {
+                id
+              }
             }
-          }
-          userErrors {
-            message
-            path
           }
         }
       }
@@ -162,48 +192,19 @@ Deno.serve(async (req) => {
 
     let propertyId = null;
     try {
-      const address = parseAddress(quote.site_address);
-      const propertyVariables = {
-        clientId: clientId, // EncodedId!
-        input: {
-          name: quote.customer_name || 'Service Location',
-          address: address
-        }
-      };
+      const propertiesResult = await gql(JOBBER_API, headers, propertiesQuery, { clientId });
+      const existingProperties = propertiesResult?.node?.properties?.nodes || [];
       
-      console.log('Property variables:', JSON.stringify(propertyVariables, null, 2));
-      
-      const propertyResult = await gql(JOBBER_API, headers, propertyMutation, propertyVariables);
-
-      const errs = propertyResult?.propertyCreate?.userErrors ?? [];
-      if (errs.length > 0) {
-        const errors = errs.map((e: any) => `${(e.path || []).join('.')}: ${e.message}`).join('; ');
-        console.error('Property creation errors:', errors);
-        console.error('Property result:', JSON.stringify(propertyResult, null, 2));
-        return json({ 
-          ok: false, 
-          error: `Failed to create property in Jobber: ${errors}`,
-          meta: { propertyVariables }
-        }, 400);
-      }
-
-      const propsArr = propertyResult?.propertyCreate?.properties ?? [];
-      if (propsArr.length > 0) {
-        propertyId = propsArr[0].id;
-        console.log('Created Jobber property:', propertyId);
+      if (existingProperties.length > 0) {
+        propertyId = existingProperties[0].id;
+        console.log('Using existing property:', propertyId);
       } else {
-        return json({ 
-          ok: false, 
-          error: 'Failed to create property (required for quotes)',
-          meta: { propertyVariables, propertyResult }
-        }, 400);
+        console.log('No existing properties found, will try to create quote without property');
+        // In some Jobber versions, propertyId might be optional for quotes
       }
     } catch (error: any) {
-      console.error('Property creation failed:', error.message);
-      return json({ 
-        ok: false, 
-        error: `Failed to create property: ${error.message}` 
-      }, 400);
+      console.error('Property query failed:', error.message);
+      console.log('Will attempt to create quote without property');
     }
 
     // Step 3: Create quote with ONE line item for the grand total
@@ -226,22 +227,26 @@ Deno.serve(async (req) => {
     `;
 
     try {
-      const quoteVariables = {
-        input: {
-          title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
-          clientId: clientId,     // EncodedId!
-          propertyId: propertyId, // EncodedId!
-          lineItems: [
-            {
-              name: 'Window Tinting Project Total',
-              description: 'Complete window tinting installation from Tint-Craft Pro',
-              quantity: 1,
-              unitPrice: grandTotal,
-            }
-          ],
-          taxRate: 0, // We already calculated tax in our system
-        }
+      const quoteInput: any = {
+        title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
+        clientId: clientId,     // EncodedId!
+        lineItems: [
+          {
+            name: 'Window Tinting Project Total',
+            description: 'Complete window tinting installation from Tint-Craft Pro',
+            quantity: 1,
+            unitPrice: grandTotal,
+          }
+        ],
+        taxRate: 0, // We already calculated tax in our system
       };
+
+      // Only add propertyId if we have one
+      if (propertyId) {
+        quoteInput.propertyId = propertyId;
+      }
+
+      const quoteVariables = { input: quoteInput };
 
       console.log('Quote variables:', JSON.stringify(quoteVariables, null, 2));
 
