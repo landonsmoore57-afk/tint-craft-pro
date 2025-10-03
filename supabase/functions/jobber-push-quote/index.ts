@@ -143,61 +143,48 @@ Deno.serve(async (req) => {
     // 7. Create or find client in Jobber
     console.log('=== Creating/Finding Jobber Client ===');
     
-    // First, try to find existing client by name
-    const searchQuery = `
-      query SearchClients($query: String!) {
-        clients(first: 5, filter: { query: $query }) {
-          nodes {
-            id
-            companyName
-            properties {
-              nodes {
+    let clientId = null;
+    let propertyId = null;
+
+    // Try to search for existing client (simplified - just create new if this fails)
+    try {
+      const searchQuery = `
+        query SearchClients($searchTerm: String!) {
+          clients(first: 5, searchTerm: $searchTerm) {
+            edges {
+              node {
                 id
+                companyName
               }
             }
           }
         }
-      }
-    `;
+      `;
 
-    let clientId = null;
-    let propertyId = null;
-
-    try {
       const searchResult = await jobberGraphQL(JOBBER_API, headers, searchQuery, {
-        query: quote.customer_name
+        searchTerm: quote.customer_name
       });
 
-      const existingClients = searchResult?.clients?.nodes || [];
+      const edges = searchResult?.clients?.edges || [];
       
-      if (existingClients.length > 0) {
-        // Use the first matching client
-        const existingClient = existingClients[0];
-        clientId = existingClient.id;
-        
-        // Get first property if available
-        if (existingClient.properties?.nodes?.length > 0) {
-          propertyId = existingClient.properties.nodes[0].id;
-        }
-        
+      if (edges.length > 0) {
+        clientId = edges[0].node.id;
         console.log('Found existing client:', clientId);
       }
     } catch (e: any) {
-      console.log('Client search failed or returned no results, will create new client');
+      console.log('Client search failed or not supported:', e.message);
+      // Not a critical error - we'll just create a new client
     }
 
     // Create new client if not found
     if (!clientId) {
+      console.log('Creating new client...');
+      
       const clientMutation = `
         mutation CreateClient($input: ClientCreateInput!) {
           clientCreate(input: $input) {
             client {
               id
-              properties {
-                nodes {
-                  id
-                }
-              }
             }
             userErrors {
               message
@@ -213,10 +200,16 @@ Deno.serve(async (req) => {
 
       // Add optional fields if available
       if (quote.customer_email) {
-        clientInput.emails = [{ address: quote.customer_email, isPrimary: true }];
+        clientInput.emails = [{ 
+          address: quote.customer_email, 
+          description: "PRIMARY"
+        }];
       }
       if (quote.customer_phone) {
-        clientInput.phones = [{ number: quote.customer_phone, isPrimary: true }];
+        clientInput.phones = [{ 
+          number: quote.customer_phone, 
+          description: "MOBILE"
+        }];
       }
 
       const clientResult = await jobberGraphQL(JOBBER_API, headers, clientMutation, {
@@ -230,24 +223,51 @@ Deno.serve(async (req) => {
       }
 
       clientId = clientResult.clientCreate.client.id;
-      
-      // Get property from newly created client
-      const properties = clientResult.clientCreate.client.properties?.nodes || [];
-      if (properties.length > 0) {
-        propertyId = properties[0].id;
-      }
-      
       console.log('Client created:', clientId);
     }
 
-    // 8. Create property if none exists
+    // 8. Get properties for this client
+    console.log('=== Getting/Creating Property ===');
+    
+    try {
+      const propertiesQuery = `
+        query GetClientProperties($clientId: ID!) {
+          client(id: $clientId) {
+            id
+            properties(first: 1) {
+              edges {
+                node {
+                  id
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      const propertiesResult = await jobberGraphQL(JOBBER_API, headers, propertiesQuery, { 
+        clientId 
+      });
+
+      const propertyEdges = propertiesResult?.client?.properties?.edges || [];
+      
+      if (propertyEdges.length > 0) {
+        propertyId = propertyEdges[0].node.id;
+        console.log('Found existing property:', propertyId);
+      }
+    } catch (e: any) {
+      console.log('Property query failed:', e.message);
+      // Will create new property below
+    }
+
+    // Create property if none exists
     if (!propertyId) {
-      console.log('=== Creating Property ===');
+      console.log('Creating new property...');
       
       const propertyMutation = `
-        mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
-          propertyCreate(clientId: $clientId, input: $input) {
-            properties {
+        mutation CreateProperty($input: PropertyCreateInput!) {
+          propertyCreate(input: $input) {
+            property {
               id
             }
             userErrors {
@@ -258,7 +278,9 @@ Deno.serve(async (req) => {
         }
       `;
 
-      const propertyInput: any = {};
+      const propertyInput: any = {
+        clientId: clientId,
+      };
       
       // Add address if available
       if (quote.site_address) {
@@ -268,7 +290,6 @@ Deno.serve(async (req) => {
       }
 
       const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { 
-        clientId,
         input: propertyInput
       });
 
@@ -278,12 +299,13 @@ Deno.serve(async (req) => {
         return json({ ok: false, error: `Failed to create property: ${errors}` }, 400);
       }
 
-      const properties = propertyResult.propertyCreate?.properties || [];
-      if (!properties.length) {
+      propertyId = propertyResult.propertyCreate?.property?.id;
+      
+      if (!propertyId) {
         console.error('No property ID returned');
         return json({ ok: false, error: 'Failed to create property for quote' }, 400);
       }
-      propertyId = properties[0].id;
+      
       console.log('Property created:', propertyId);
     }
 
@@ -291,8 +313,8 @@ Deno.serve(async (req) => {
     console.log('=== Creating Jobber Quote ===');
     
     const quoteMutation = `
-      mutation CreateQuote($attributes: QuoteCreateAttributes!) {
-        quoteCreate(attributes: $attributes) {
+      mutation CreateQuote($input: QuoteCreateInput!) {
+        quoteCreate(input: $input) {
           quote {
             id
             quoteNumber
@@ -313,31 +335,31 @@ Deno.serve(async (req) => {
     }, 0) || 0;
 
     const description = [
-      `Quote #${quote.quote_number} - ${quote.customer_name}`,
+      `Quote #${quote.quote_number}`,
       quote.site_address ? `Location: ${quote.site_address}` : null,
-      windowCount > 0 ? `${windowCount} window${windowCount !== 1 ? 's' : ''}` : null,
-      quote.notes_customer ? `Notes: ${quote.notes_customer}` : null,
+      windowCount > 0 ? `Total Windows: ${windowCount}` : null,
+      quote.notes_customer || 'Complete window tinting installation',
     ].filter(Boolean).join('\n');
 
-    const attributes = {
-      title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
+    const quoteInput = {
       clientId: clientId,
       propertyId: propertyId,
+      title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
       lineItems: [
         {
           name: 'Window Tinting Service',
           description: description,
-          quantity: 1.0,
-          unitPrice: grandTotal,
-          saveToProductsAndServices: false,
+          unitCost: grandTotal,
+          qty: 1,
         }
       ]
     };
 
-    const quoteVariables = { attributes };
-    console.log('Creating quote with total:', grandTotal);
+    console.log('Creating quote with total:', formatCurrency(grandTotal));
 
-    const quoteResult = await jobberGraphQL(JOBBER_API, headers, quoteMutation, quoteVariables);
+    const quoteResult = await jobberGraphQL(JOBBER_API, headers, quoteMutation, {
+      input: quoteInput
+    });
 
     if (quoteResult.quoteCreate?.userErrors?.length) {
       const errors = quoteResult.quoteCreate.userErrors.map((e: any) => e.message).join('; ');
@@ -347,7 +369,7 @@ Deno.serve(async (req) => {
 
     const jobberQuote = quoteResult.quoteCreate?.quote;
     if (!jobberQuote?.id) {
-      console.error('No quote returned');
+      console.error('No quote returned from Jobber');
       return json({ ok: false, error: 'Failed to create quote in Jobber' }, 400);
     }
 
@@ -359,7 +381,8 @@ Deno.serve(async (req) => {
       jobberQuote,
       clientId,
       propertyId,
-      message: `Quote #${jobberQuote.quoteNumber} created in Jobber with total ${formatCurrency(grandTotal)}`
+      total: formatCurrency(grandTotal),
+      message: `Quote #${jobberQuote.quoteNumber} created in Jobber`
     });
 
   } catch (error: any) {
