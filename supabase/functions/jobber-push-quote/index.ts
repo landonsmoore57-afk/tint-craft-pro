@@ -166,17 +166,42 @@ Deno.serve(async (req) => {
     const grandTotal = calculateQuoteTotal(quote);
     console.log('Grand total:', grandTotal);
 
-    // 8. Create quote in Jobber (simplified with just total)
+    // 8. Now introspect QuoteCreateAttributes to see what fields it accepts
+    console.log('=== Introspecting QuoteCreateAttributes ===');
+    const attributesIntrospection = `
+      query IntrospectQuoteCreateAttributes {
+        __type(name: "QuoteCreateAttributes") {
+          name
+          inputFields {
+            name
+            type {
+              name
+              kind
+              ofType {
+                name
+                kind
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    let attributesFields: any[] = [];
+    try {
+      const attributesResult = await jobberGraphQL(JOBBER_API, headers, attributesIntrospection);
+      attributesFields = attributesResult.__type?.inputFields || [];
+      console.log('QuoteCreateAttributes fields:', JSON.stringify(attributesFields, null, 2));
+    } catch (e: any) {
+      console.error('Attributes introspection failed:', e.message);
+    }
+
+    // 9. Create quote in Jobber using the correct attributes structure
     console.log('=== Creating Jobber Quote ===');
     
-    // Try different mutation structures based on common patterns
     const quoteMutation = `
-      mutation CreateQuote($clientId: ID!, $title: String!, $lineItems: [LineItemAttributes!]!) {
-        quoteCreate(
-          clientId: $clientId,
-          title: $title,
-          lineItems: $lineItems
-        ) {
+      mutation CreateQuote($attributes: QuoteCreateAttributes!) {
+        quoteCreate(attributes: $attributes) {
           quote {
             id
             quoteNumber
@@ -189,19 +214,25 @@ Deno.serve(async (req) => {
       }
     `;
 
-    const quoteVariables = {
-      clientId: clientId,
+    // Build attributes object based on what we discovered
+    const attributes: any = {
       title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
-      lineItems: [
+      clientId: clientId,
+    };
+
+    // Try adding line items if the field exists
+    if (attributesFields.some((f: any) => f.name === 'lineItems')) {
+      attributes.lineItems = [
         {
           name: 'Window Tinting Service',
           description: 'Complete window tinting installation',
-          quantity: 1,
+          quantity: 1.0,
           unitPrice: grandTotal,
         }
-      ]
-    };
+      ];
+    }
 
+    const quoteVariables = { attributes };
     console.log('Quote variables:', JSON.stringify(quoteVariables, null, 2));
 
     const quoteResult = await jobberGraphQL(JOBBER_API, headers, quoteMutation, quoteVariables);
