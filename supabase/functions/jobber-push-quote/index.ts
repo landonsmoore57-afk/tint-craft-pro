@@ -28,10 +28,16 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // 1. Load quote data
+    // 1. Load quote data with all necessary relationships
     const { data: quote, error: quoteError } = await supabase
       .from('quotes')
-      .select('*')
+      .select(`
+        *,
+        sections (
+          *,
+          windows (*)
+        )
+      `)
       .eq('id', quoteId)
       .single();
 
@@ -42,7 +48,15 @@ Deno.serve(async (req) => {
 
     console.log('Quote loaded:', quote.quote_number);
 
-    // 2. Get Jobber tokens
+    // 2. Load films and materials for calculation
+    const { data: films } = await supabase.from('films').select('*');
+    const { data: materials } = await supabase.from('materials').select('*').eq('active', true);
+    
+    const filmsMap = new Map(films?.map((f: any) => [f.id, f]) || []);
+    const gasket = materials?.find((m: any) => m.key === 'gasket');
+    const caulk = materials?.find((m: any) => m.key === 'caulk');
+
+    // 3. Get Jobber tokens
     const { data: tokens, error: tokensError } = await supabase
       .from('integration_jobber_tokens')
       .select('*')
@@ -54,7 +68,7 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: 'Jobber not connected. Please connect Jobber in Settings.' }, 400);
     }
 
-    // 3. Check and refresh token if needed
+    // 4. Check and refresh token if needed
     let accessToken = tokens.access_token;
     const expiresAt = new Date(tokens.expires_at);
     
@@ -92,7 +106,7 @@ Deno.serve(async (req) => {
       console.log('Token refreshed');
     }
 
-    // 4. Set up Jobber API
+    // 5. Set up Jobber API
     const JOBBER_API = 'https://api.getjobber.com/api/graphql';
     const headers = {
       'Authorization': `Bearer ${accessToken}`,
@@ -100,22 +114,23 @@ Deno.serve(async (req) => {
       'X-JOBBER-GRAPHQL-VERSION': '2023-11-15',
     };
 
-    // 5. First, let's introspect the quoteCreate mutation to see what it expects
-    console.log('=== Introspecting quoteCreate mutation ===');
-    const introspectionQuery = `
-      query IntrospectQuoteCreate {
-        __type(name: "Mutation") {
-          fields {
-            name
-            args {
-              name
-              type {
-                name
-                kind
-                ofType {
-                  name
-                  kind
-                }
+    // 6. Calculate quote total
+    const grandTotal = calculateQuoteTotal(quote, filmsMap, gasket, caulk);
+    console.log('Calculated grand total:', grandTotal);
+
+    // 7. Create or find client in Jobber
+    console.log('=== Creating/Finding Jobber Client ===');
+    
+    // First, try to find existing client by name
+    const searchQuery = `
+      query SearchClients($query: String!) {
+        clients(first: 5, filter: { query: $query }) {
+          nodes {
+            id
+            companyName
+            properties {
+              nodes {
+                id
               }
             }
           }
@@ -123,106 +138,90 @@ Deno.serve(async (req) => {
       }
     `;
 
-    try {
-      const introspectionResult = await jobberGraphQL(JOBBER_API, headers, introspectionQuery);
-      const quoteCreateField = introspectionResult.__type?.fields?.find((f: any) => f.name === 'quoteCreate');
-      console.log('quoteCreate mutation details:', JSON.stringify(quoteCreateField, null, 2));
-    } catch (e: any) {
-      console.error('Introspection failed:', e.message);
-    }
-
-    // 6. Create client in Jobber
-    console.log('=== Creating Jobber Client ===');
-    const clientMutation = `
-      mutation CreateClient($input: ClientCreateInput!) {
-        clientCreate(input: $input) {
-          client {
-            id
-          }
-          userErrors {
-            message
-            path
-          }
-        }
-      }
-    `;
-
-    const clientResult = await jobberGraphQL(JOBBER_API, headers, clientMutation, {
-      input: {
-        companyName: quote.customer_name || 'Customer',
-      }
-    });
-
-    if (clientResult.clientCreate.userErrors?.length) {
-      const errors = clientResult.clientCreate.userErrors.map((e: any) => e.message).join('; ');
-      console.error('Client creation failed:', errors);
-      return json({ ok: false, error: `Failed to create client: ${errors}` }, 400);
-    }
-
-    const clientId = clientResult.clientCreate.client.id;
-    console.log('Client created:', clientId);
-
-    // 7. Get or create property for the client (required for quotes)
-    console.log('=== Fetching client properties ===');
-    const propertiesQuery = `
-      query GetClientProperties($clientId: EncodedId!) {
-        client(id: $clientId) {
-          properties {
-            id
-          }
-        }
-      }
-    `;
-
+    let clientId = null;
     let propertyId = null;
+
     try {
-      const propertiesResult = await jobberGraphQL(JOBBER_API, headers, propertiesQuery, { clientId });
-      const existingProperties = propertiesResult?.client?.properties || [];
+      const searchResult = await jobberGraphQL(JOBBER_API, headers, searchQuery, {
+        query: quote.customer_name
+      });
+
+      const existingClients = searchResult?.clients?.nodes || [];
       
-      if (existingProperties.length > 0) {
-        propertyId = existingProperties[0].id;
-        console.log('Using existing property:', propertyId);
-      } else {
-        console.log('No existing properties found, creating one...');
+      if (existingClients.length > 0) {
+        // Use the first matching client
+        const existingClient = existingClients[0];
+        clientId = existingClient.id;
+        
+        // Get first property if available
+        if (existingClient.properties?.nodes?.length > 0) {
+          propertyId = existingClient.properties.nodes[0].id;
+        }
+        
+        console.log('Found existing client:', clientId);
       }
     } catch (e: any) {
-      console.error('Property query failed:', e.message);
+      console.log('Client search failed or returned no results, will create new client');
     }
 
-    // If no property exists, create one with address info
-    if (!propertyId) {
-      console.log('=== Introspecting PropertyCreateInput ===');
-      const propertyInputIntrospection = `
-        query IntrospectPropertyCreateInput {
-          __type(name: "PropertyCreateInput") {
-            name
-            inputFields {
-              name
-              type {
-                name
-                kind
-                ofType {
-                  name
-                  kind
+    // Create new client if not found
+    if (!clientId) {
+      const clientMutation = `
+        mutation CreateClient($input: ClientCreateInput!) {
+          clientCreate(input: $input) {
+            client {
+              id
+              properties {
+                nodes {
+                  id
                 }
               }
+            }
+            userErrors {
+              message
+              path
             }
           }
         }
       `;
 
-      let inputFields: any[] = [];
-      try {
-        const inputResult = await jobberGraphQL(JOBBER_API, headers, propertyInputIntrospection);
-        inputFields = inputResult.__type?.inputFields || [];
-        console.log('PropertyCreateInput fields:', JSON.stringify(inputFields, null, 2));
-      } catch (e: any) {
-        console.error('PropertyCreateInput introspection failed:', e.message);
+      const clientInput: any = {
+        companyName: quote.customer_name || 'Customer',
+      };
+
+      // Add optional fields if available
+      if (quote.customer_email) {
+        clientInput.emails = [{ address: quote.customer_email, isPrimary: true }];
+      }
+      if (quote.customer_phone) {
+        clientInput.phones = [{ number: quote.customer_phone, isPrimary: true }];
       }
 
-      console.log('=== Creating property ===');
+      const clientResult = await jobberGraphQL(JOBBER_API, headers, clientMutation, {
+        input: clientInput
+      });
+
+      if (clientResult.clientCreate.userErrors?.length) {
+        const errors = clientResult.clientCreate.userErrors.map((e: any) => e.message).join('; ');
+        console.error('Client creation failed:', errors);
+        return json({ ok: false, error: `Failed to create client: ${errors}` }, 400);
+      }
+
+      clientId = clientResult.clientCreate.client.id;
       
-      // Create property with empty input object (maybe all fields are optional?)
+      // Get property from newly created client
+      const properties = clientResult.clientCreate.client.properties?.nodes || [];
+      if (properties.length > 0) {
+        propertyId = properties[0].id;
+      }
+      
+      console.log('Client created:', clientId);
+    }
+
+    // 8. Create property if none exists
+    if (!propertyId) {
+      console.log('=== Creating Property ===');
+      
       const propertyMutation = `
         mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
           propertyCreate(clientId: $clientId, input: $input) {
@@ -237,10 +236,18 @@ Deno.serve(async (req) => {
         }
       `;
 
-      // Start with empty input - let Jobber tell us what's required via userErrors
+      const propertyInput: any = {};
+      
+      // Add address if available
+      if (quote.site_address) {
+        propertyInput.address = {
+          street1: quote.site_address,
+        };
+      }
+
       const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { 
         clientId,
-        input: {} 
+        input: propertyInput
       });
 
       if (propertyResult.propertyCreate?.userErrors?.length) {
@@ -258,41 +265,7 @@ Deno.serve(async (req) => {
       console.log('Property created:', propertyId);
     }
 
-    // 8. Calculate total from quote
-    const grandTotal = calculateQuoteTotal(quote);
-    console.log('Grand total:', grandTotal);
-
-    // 9. Now introspect QuoteCreateAttributes to see what fields it accepts
-    console.log('=== Introspecting QuoteCreateAttributes ===');
-    const attributesIntrospection = `
-      query IntrospectQuoteCreateAttributes {
-        __type(name: "QuoteCreateAttributes") {
-          name
-          inputFields {
-            name
-            type {
-              name
-              kind
-              ofType {
-                name
-                kind
-              }
-            }
-          }
-        }
-      }
-    `;
-
-    let attributesFields: any[] = [];
-    try {
-      const attributesResult = await jobberGraphQL(JOBBER_API, headers, attributesIntrospection);
-      attributesFields = attributesResult.__type?.inputFields || [];
-      console.log('QuoteCreateAttributes fields:', JSON.stringify(attributesFields, null, 2));
-    } catch (e: any) {
-      console.error('Attributes introspection failed:', e.message);
-    }
-
-    // 10. Create quote in Jobber using the correct attributes structure
+    // 9. Create quote in Jobber
     console.log('=== Creating Jobber Quote ===');
     
     const quoteMutation = `
@@ -310,15 +283,28 @@ Deno.serve(async (req) => {
       }
     `;
 
-    // Build attributes object with all required fields
+    // Build line item description
+    const windowCount = quote.sections?.reduce((sum: number, section: any) => {
+      return sum + (section.windows?.reduce((wSum: number, window: any) => {
+        return wSum + (window.quantity || 1);
+      }, 0) || 0);
+    }, 0) || 0;
+
+    const description = [
+      `Quote #${quote.quote_number} - ${quote.customer_name}`,
+      quote.site_address ? `Location: ${quote.site_address}` : null,
+      windowCount > 0 ? `${windowCount} window${windowCount !== 1 ? 's' : ''}` : null,
+      quote.notes_customer ? `Notes: ${quote.notes_customer}` : null,
+    ].filter(Boolean).join('\n');
+
     const attributes = {
       title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
       clientId: clientId,
-      propertyId: propertyId, // Required field
+      propertyId: propertyId,
       lineItems: [
         {
           name: 'Window Tinting Service',
-          description: 'Complete window tinting installation',
+          description: description,
           quantity: 1.0,
           unitPrice: grandTotal,
           saveToProductsAndServices: false,
@@ -327,7 +313,7 @@ Deno.serve(async (req) => {
     };
 
     const quoteVariables = { attributes };
-    console.log('Quote variables:', JSON.stringify(quoteVariables, null, 2));
+    console.log('Creating quote with total:', grandTotal);
 
     const quoteResult = await jobberGraphQL(JOBBER_API, headers, quoteMutation, quoteVariables);
 
@@ -350,7 +336,8 @@ Deno.serve(async (req) => {
       ok: true, 
       jobberQuote,
       clientId,
-      message: `Quote #${jobberQuote.quoteNumber} created in Jobber`
+      propertyId,
+      message: `Quote #${jobberQuote.quoteNumber} created in Jobber with total ${formatCurrency(grandTotal)}`
     });
 
   } catch (error: any) {
@@ -383,11 +370,68 @@ async function jobberGraphQL(endpoint: string, headers: any, query: string, vari
   return result.data;
 }
 
-// Helper: Calculate quote total
-function calculateQuoteTotal(quote: any): number {
-  // For now, return a simple placeholder
-  // You can implement the full calculation logic later
-  return 1000.00;
+// Helper: Calculate quote total (replicates client-side logic)
+function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any, caulk: any): number {
+  const resolveFilm = (windowFilmId: string | null, sectionFilmId: string | null, globalFilmId: string | null) => {
+    if (windowFilmId && filmsMap.has(windowFilmId)) return filmsMap.get(windowFilmId);
+    if (sectionFilmId && filmsMap.has(sectionFilmId)) return filmsMap.get(sectionFilmId);
+    if (globalFilmId && filmsMap.has(globalFilmId)) return filmsMap.get(globalFilmId);
+    return null;
+  };
+
+  let windowsSubtotal = 0;
+  let totalLinearFeetSecurity = 0;
+
+  for (const section of (quote.sections || [])) {
+    for (const window of (section.windows || [])) {
+      // Use quote dimensions if present, otherwise use exact
+      const useQuoteDims = window.quote_width_in != null && window.quote_height_in != null;
+      const width = useQuoteDims ? window.quote_width_in : window.width_in;
+      const height = useQuoteDims ? window.quote_height_in : window.height_in;
+
+      // Calculate area
+      const areaSqft = (width * height) / 144;
+      const lineAreaSqft = areaSqft * window.quantity;
+      const effectiveAreaSqft = lineAreaSqft * (1 + (window.waste_factor_percent || 0) / 100);
+      
+      // Get film and pricing
+      const resolvedFilm = resolveFilm(window.window_film_id, section.section_film_id, quote.global_film_id);
+      const sellPerSqft = window.override_sell_per_sqft ?? resolvedFilm?.sell_per_sqft ?? 0;
+      const lineTotal = effectiveAreaSqft * sellPerSqft;
+      
+      windowsSubtotal += lineTotal;
+
+      // Calculate linear feet for security film (always use exact dimensions for materials)
+      const isSecurity = resolvedFilm?.security_film ?? false;
+      if (isSecurity) {
+        const linearFeet = window.quantity * (2 * (window.width_in + window.height_in) / 12);
+        totalLinearFeetSecurity += linearFeet;
+      }
+    }
+  }
+
+  // Calculate materials (using no materials for simplicity - can be enhanced later)
+  const materialsTotal = 0; // Or calculate based on gasket/caulk if needed
+
+  // Calculate discounts and totals
+  const subtotal = windowsSubtotal + materialsTotal;
+  const discountFlatAmount = Math.min(quote.discount_flat || 0, subtotal);
+  const subtotalAfterFlat = subtotal - discountFlatAmount;
+  const discountPercentAmount = subtotalAfterFlat * ((quote.discount_percent || 0) / 100);
+  const subtotalAfterDiscounts = subtotalAfterFlat - discountPercentAmount;
+  
+  const travelFee = quote.travel_fee || 0;
+  const taxableBase = quote.travel_taxable ? subtotalAfterDiscounts + travelFee : subtotalAfterDiscounts;
+  const taxAmount = taxableBase * ((quote.tax_percent || 0) / 100);
+  
+  const grandTotal = subtotalAfterDiscounts + travelFee + taxAmount;
+
+  return Math.round(grandTotal * 100) / 100; // Round to 2 decimal places
+}
+
+// Helper: Format currency
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 }
 
 // Helper: JSON response
