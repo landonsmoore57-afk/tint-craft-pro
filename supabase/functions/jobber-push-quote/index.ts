@@ -84,6 +84,7 @@ Deno.serve(async (req) => {
     const headers = {
       'Authorization': `Bearer ${tokens.access_token}`,
       'Content-Type': 'application/json',
+      'X-JOBBER-GRAPHQL-VERSION': '2025-01-20',
     };
 
     // Step 1: Create or find client in Jobber
