@@ -72,21 +72,54 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: 'Jobber not connected. Please connect Jobber in Settings first.' }, 400);
     }
 
-    // Check if token is expired
+    // Check if token is expired and refresh if needed
     const expiresAt = new Date(tokens.expires_at);
     const now = new Date();
     
+    let accessToken = tokens.access_token;
+    
     if (expiresAt <= now) {
       console.log('Token expired, refreshing...');
-      // TODO: Implement token refresh
-      return json({ ok: false, error: 'Jobber token expired. Please reconnect Jobber in Settings.' }, 400);
+      
+      const refreshResponse = await fetch('https://api.getjobber.com/api/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grant_type: 'refresh_token',
+          refresh_token: tokens.refresh_token,
+          client_id: Deno.env.get('JOBBER_CLIENT_ID'),
+          client_secret: Deno.env.get('JOBBER_CLIENT_SECRET'),
+        }),
+      });
+
+      if (!refreshResponse.ok) {
+        console.error('Token refresh failed:', await refreshResponse.text());
+        return json({ ok: false, error: 'Jobber token expired and refresh failed. Please reconnect Jobber in Settings.' }, 400);
+      }
+
+      const refreshData = await refreshResponse.json();
+      accessToken = refreshData.access_token;
+      
+      // Update tokens in database
+      const newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000);
+      await supabase
+        .from('integration_jobber_tokens')
+        .update({
+          access_token: refreshData.access_token,
+          refresh_token: refreshData.refresh_token,
+          expires_at: newExpiresAt.toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('account_id', userId);
+      
+      console.log('Token refreshed successfully');
     }
 
     console.log('Pushing quote to Jobber via GraphQL');
 
     const JOBBER_API = 'https://api.getjobber.com/api/graphql';
     const headers = {
-      'Authorization': `Bearer ${tokens.access_token}`,
+      'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
       'X-JOBBER-GRAPHQL-VERSION': '2025-01-20',
     };
