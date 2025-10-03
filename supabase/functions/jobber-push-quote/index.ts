@@ -191,21 +191,19 @@ Deno.serve(async (req) => {
 
     // If no property exists, create one with address info
     if (!propertyId) {
-      console.log('=== Introspecting propertyCreate mutation ===');
-      const propertyCreateIntrospection = `
-        query IntrospectPropertyCreate {
-          __type(name: "Mutation") {
-            fields {
+      console.log('=== Introspecting PropertyCreateInput ===');
+      const propertyInputIntrospection = `
+        query IntrospectPropertyCreateInput {
+          __type(name: "PropertyCreateInput") {
+            name
+            inputFields {
               name
-              args {
+              type {
                 name
-                type {
+                kind
+                ofType {
                   name
                   kind
-                  ofType {
-                    name
-                    kind
-                  }
                 }
               }
             }
@@ -213,20 +211,21 @@ Deno.serve(async (req) => {
         }
       `;
 
+      let inputFields: any[] = [];
       try {
-        const mutationResult = await jobberGraphQL(JOBBER_API, headers, propertyCreateIntrospection);
-        const propertyCreateField = mutationResult.__type?.fields?.find((f: any) => f.name === 'propertyCreate');
-        console.log('propertyCreate mutation args:', JSON.stringify(propertyCreateField?.args, null, 2));
+        const inputResult = await jobberGraphQL(JOBBER_API, headers, propertyInputIntrospection);
+        inputFields = inputResult.__type?.inputFields || [];
+        console.log('PropertyCreateInput fields:', JSON.stringify(inputFields, null, 2));
       } catch (e: any) {
-        console.error('propertyCreate introspection failed:', e.message);
+        console.error('PropertyCreateInput introspection failed:', e.message);
       }
 
-      console.log('=== Creating property with minimal input ===');
+      console.log('=== Creating property ===');
       
-      // Try creating property with just clientId (maybe input is optional?)
+      // Create property with empty input object (maybe all fields are optional?)
       const propertyMutation = `
-        mutation CreateProperty($clientId: EncodedId!) {
-          propertyCreate(clientId: $clientId) {
+        mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
+          propertyCreate(clientId: $clientId, input: $input) {
             properties {
               id
             }
@@ -238,7 +237,11 @@ Deno.serve(async (req) => {
         }
       `;
 
-      const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { clientId });
+      // Start with empty input - let Jobber tell us what's required via userErrors
+      const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { 
+        clientId,
+        input: {} 
+      });
 
       if (propertyResult.propertyCreate?.userErrors?.length) {
         const errors = propertyResult.propertyCreate.userErrors.map((e: any) => e.message).join('; ');
