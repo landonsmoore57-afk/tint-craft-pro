@@ -222,16 +222,34 @@ Deno.serve(async (req) => {
 });
 
 async function gql(endpoint: string, headers: any, query: string, variables?: any) {
+  console.log('Making GraphQL request to:', endpoint);
+  console.log('Variables:', JSON.stringify(variables));
+  
   const response = await fetch(endpoint, {
     method: 'POST',
     headers,
     body: JSON.stringify({ query, variables })
   });
 
+  console.log('Response status:', response.status);
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('GraphQL request failed:', errorText);
+    throw new Error(`GraphQL request failed: ${response.status} ${errorText}`);
+  }
+
   const result = await response.json();
+  console.log('GraphQL result:', JSON.stringify(result));
   
   if (result.errors) {
+    console.error('GraphQL errors:', result.errors);
     throw new Error(result.errors.map((x: any) => x.message).join('; '));
+  }
+
+  if (!result.data) {
+    console.error('No data in GraphQL response:', result);
+    throw new Error('No data returned from GraphQL API');
   }
 
   return result.data;
