@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
     // Step 2: Always create property (required for quotes in Jobber)
     console.log('Creating property for quote...');
     const propertyMutation = `
-      mutation CreateProperty($clientId: EncodedId!, $input: PropertyEditInput!) {
+      mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
         propertyCreate(clientId: $clientId, input: $input) {
           properties {
             id
