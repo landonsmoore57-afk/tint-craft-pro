@@ -157,8 +157,8 @@ Deno.serve(async (req) => {
     // Step 2: Always create property (required for quotes in Jobber)
     console.log('Creating property for quote...');
     const propertyMutation = `
-      mutation CreateProperty($input: PropertyInput!) {
-        propertyCreate(input: $input) {
+      mutation CreateProperty($clientId: EncodedId!, $input: PropertyEditInput!) {
+        propertyCreate(clientId: $clientId, input: $input) {
           properties {
             id
           }
@@ -173,8 +173,8 @@ Deno.serve(async (req) => {
     let propertyId = null;
     try {
       const propertyResult = await gql(JOBBER_API, headers, propertyMutation, {
+        clientId: clientId,
         input: {
-          clientId: clientId,
           address: {
             street1: quote.site_address || quote.customer_name || 'Service Location',
           }
