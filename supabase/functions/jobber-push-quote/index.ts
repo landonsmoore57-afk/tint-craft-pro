@@ -257,14 +257,16 @@ Deno.serve(async (req) => {
       // Will create new property below
     }
 
-    // Create property if none exists (CORRECTED)
+    // Create property if none exists (with detailed logging)
     if (!propertyId) {
       console.log('Creating new property...');
       
-      // clientId is a SEPARATE argument, not in input
       const propertyMutation = `
         mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
           propertyCreate(clientId: $clientId, input: $input) {
+            property {
+              id
+            }
             properties {
               id
             }
@@ -285,6 +287,7 @@ Deno.serve(async (req) => {
         input: propertyInput
       });
 
+      // Log the full response to see structure
       console.log('Property creation response:', JSON.stringify(propertyResult, null, 2));
 
       if (propertyResult.propertyCreate?.userErrors?.length) {
@@ -293,17 +296,55 @@ Deno.serve(async (req) => {
         return json({ ok: false, error: `Failed to create property: ${errors}` }, 400);
       }
 
-      // Returns 'properties' (plural array), not 'property'
-      const properties = propertyResult.propertyCreate?.properties || [];
-      console.log('Properties returned:', properties);
-      
-      if (properties.length === 0) {
-        console.error('No property returned from creation');
-        return json({ ok: false, error: 'Failed to create property for quote' }, 400);
+      // Try multiple possible response structures
+      if (propertyResult.propertyCreate?.property?.id) {
+        // Singular 'property'
+        propertyId = propertyResult.propertyCreate.property.id;
+        console.log('Property created (singular):', propertyId);
+      } else if (propertyResult.propertyCreate?.properties?.length > 0) {
+        // Plural 'properties' array
+        propertyId = propertyResult.propertyCreate.properties[0].id;
+        console.log('Property created (plural array):', propertyId);
+      } else {
+        // Property was created but not returned - query for it
+        console.log('Property created but not in response, querying for it...');
+        
+        try {
+          const propertiesQuery = `
+            query GetClientProperties($clientId: EncodedId!) {
+              client(id: $clientId) {
+                properties {
+                  id
+                }
+              }
+            }
+          `;
+
+          const propertiesResult = await jobberGraphQL(JOBBER_API, headers, propertiesQuery, { 
+            clientId 
+          });
+
+          const properties = propertiesResult?.client?.properties || [];
+          
+          if (properties.length > 0) {
+            // Get the most recently created property (last one)
+            propertyId = properties[properties.length - 1].id;
+            console.log('Found property after creation:', propertyId);
+          }
+        } catch (e: any) {
+          console.error('Failed to query for created property:', e.message);
+        }
       }
       
-      propertyId = properties[0].id;
-      console.log('Property created:', propertyId);
+      if (!propertyId) {
+        console.error('Could not get property ID after creation');
+        console.error('Full response:', JSON.stringify(propertyResult, null, 2));
+        return json({ 
+          ok: false, 
+          error: 'Property creation succeeded but could not retrieve property ID. Please check Jobber and try again.',
+          debug: propertyResult
+        }, 400);
+      }
     }
 
     // 9. Create quote in Jobber
