@@ -180,8 +180,8 @@ Deno.serve(async (req) => {
     console.log('Creating quote in Jobber with single line item...');
     
     const quoteMutation = `
-      mutation CreateQuote($input: QuoteCreateInput!) {
-        quoteCreate(input: $input) {
+      mutation CreateQuote($attributes: QuoteCreateAttributes!) {
+        quoteCreate(attributes: $attributes) {
           quote {
             id
             quoteNumber
@@ -196,7 +196,7 @@ Deno.serve(async (req) => {
     `;
 
     try {
-      const quoteInput: any = {
+      const quoteAttributes: any = {
         title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
         clientId: clientId,     // EncodedId!
         lineItems: [
@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
         taxRate: 0, // We already calculated tax in our system
       };
 
-      const quoteVariables = { input: quoteInput };
+      const quoteVariables = { attributes: quoteAttributes };
 
       console.log('Quote variables:', JSON.stringify(quoteVariables, null, 2));
 
