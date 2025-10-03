@@ -87,7 +87,31 @@ Deno.serve(async (req) => {
       'X-JOBBER-GRAPHQL-VERSION': '2025-01-20',
     };
 
-    // Step 1: Create or find client in Jobber
+    console.log('Testing API connection with a simple query first...');
+    
+    // First, let's try a simple query to verify the connection and see the schema
+    const testQuery = `
+      query {
+        account {
+          id
+          name
+        }
+      }
+    `;
+    
+    try {
+      const testResult = await gql(JOBBER_API, headers, testQuery);
+      console.log('API connection successful:', JSON.stringify(testResult));
+    } catch (error: any) {
+      console.error('API connection test failed:', error.message);
+      return json({ 
+        ok: false, 
+        error: `Jobber API connection failed: ${error.message}. Please check your Jobber connection in Settings.` 
+      }, 400);
+    }
+
+    // Step 1: Try to create client with minimal fields
+    console.log('Attempting to create/find client...');
     const clientMutation = `
       mutation CreateClient($input: ClientCreateInput!) {
         clientCreate(input: $input) {
@@ -102,24 +126,33 @@ Deno.serve(async (req) => {
       }
     `;
 
-    const clientResult = await gql(JOBBER_API, headers, clientMutation, {
-      input: {
-        companyName: quote.customer_name,
-        emails: quote.customer_email ? [{ address: quote.customer_email }] : [],
-        phones: quote.customer_phone ? [{ number: quote.customer_phone }] : [],
-      }
-    });
+    let clientId = null;
+    
+    try {
+      const clientResult = await gql(JOBBER_API, headers, clientMutation, {
+        input: {
+          companyName: quote.customer_name,
+        }
+      });
 
-    if (clientResult.clientCreate.userErrors.length > 0) {
-      console.error('Failed to create client:', clientResult.clientCreate.userErrors);
+      if (clientResult.clientCreate.userErrors && clientResult.clientCreate.userErrors.length > 0) {
+        const errors = clientResult.clientCreate.userErrors.map((e: any) => `${e.path?.join('.')}: ${e.message}`).join('; ');
+        console.error('Client creation errors:', errors);
+        return json({ 
+          ok: false, 
+          error: `Failed to create client in Jobber: ${errors}` 
+        }, 400);
+      }
+
+      clientId = clientResult.clientCreate.client.id;
+      console.log('Created Jobber client:', clientId);
+    } catch (error: any) {
+      console.error('Client creation failed:', error.message);
       return json({ 
         ok: false, 
-        error: `Jobber error: ${clientResult.clientCreate.userErrors[0].message}` 
+        error: `Failed to create client: ${error.message}` 
       }, 400);
     }
-
-    const clientId = clientResult.clientCreate.client.id;
-    console.log('Created/found Jobber client:', clientId);
 
     // Step 2: Create property if site address exists
     let propertyId = null;
