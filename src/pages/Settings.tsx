@@ -164,7 +164,8 @@ export default function Settings() {
       return;
     }
     
-    const startUrl = `${window.location.origin}/jobber-oauth-start?user_id=${user.id}`;
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const startUrl = `${supabaseUrl}/functions/v1/jobber-oauth-start?user_id=${user.id}`;
     window.location.href = startUrl;
   };
 

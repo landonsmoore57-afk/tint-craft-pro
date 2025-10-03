@@ -28,9 +28,10 @@ Deno.serve(async (req) => {
     const state = `${userId}:${crypto.randomUUID()}`;
 
     const AUTH_URL = 'https://api.getjobber.com/api/oauth/authorize';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const params = new URLSearchParams({
       client_id: Deno.env.get('JOBBER_CLIENT_ID')!,
-      redirect_uri: `${url.origin}/jobber-oauth-callback`,
+      redirect_uri: `${supabaseUrl}/functions/v1/jobber-oauth-callback`,
       response_type: 'code',
       scope: [
         'clients:read', 'clients:write',
