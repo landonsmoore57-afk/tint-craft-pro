@@ -154,59 +154,65 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    // Step 2: Create property if site address exists
-    let propertyId = null;
-    if (quote.site_address) {
-      console.log('Attempting to create property...');
-      const propertyMutation = `
-        mutation CreateProperty($input: PropertyCreateInput!) {
-          propertyCreate(input: $input) {
-            properties {
-              id
-            }
-            userErrors {
-              message
-              path
-            }
+    // Step 2: Always create property (required for quotes in Jobber)
+    console.log('Creating property for quote...');
+    const propertyMutation = `
+      mutation CreateProperty($clientId: EncodedId!, $street1: String!) {
+        propertyCreate(clientId: $clientId, address: { street1: $street1 }) {
+          properties {
+            id
+          }
+          userErrors {
+            message
+            path
           }
         }
-      `;
-
-      try {
-        const propertyResult = await gql(JOBBER_API, headers, propertyMutation, {
-          input: {
-            clientId: clientId,
-            address: {
-              street1: quote.site_address,
-            }
-          }
-        });
-
-        if (propertyResult.propertyCreate.userErrors && propertyResult.propertyCreate.userErrors.length > 0) {
-          const errors = propertyResult.propertyCreate.userErrors.map((e: any) => `${e.path?.join('.')}: ${e.message}`).join('; ');
-          console.error('Property creation errors:', errors);
-          return json({ 
-            ok: false, 
-            error: `Failed to create property in Jobber: ${errors}` 
-          }, 400);
-        }
-
-        if (propertyResult.propertyCreate.properties && propertyResult.propertyCreate.properties.length > 0) {
-          propertyId = propertyResult.propertyCreate.properties[0].id;
-          console.log('Created Jobber property:', propertyId);
-        }
-      } catch (error: any) {
-        console.error('Property creation failed:', error.message);
-        // Don't fail the whole operation if property creation fails
-        console.log('Continuing without property...');
       }
+    `;
+
+    let propertyId = null;
+    try {
+      const propertyResult = await gql(JOBBER_API, headers, propertyMutation, {
+        clientId: clientId,
+        street1: quote.site_address || quote.customer_name || 'Service Location',
+      });
+
+      if (propertyResult.propertyCreate.userErrors && propertyResult.propertyCreate.userErrors.length > 0) {
+        const errors = propertyResult.propertyCreate.userErrors.map((e: any) => `${e.path?.join('.')}: ${e.message}`).join('; ');
+        console.error('Property creation errors:', errors);
+        return json({ 
+          ok: false, 
+          error: `Failed to create property in Jobber: ${errors}` 
+        }, 400);
+      }
+
+      if (propertyResult.propertyCreate.properties && propertyResult.propertyCreate.properties.length > 0) {
+        propertyId = propertyResult.propertyCreate.properties[0].id;
+        console.log('Created Jobber property:', propertyId);
+      } else {
+        return json({ 
+          ok: false, 
+          error: 'Failed to create property (required for quotes)' 
+        }, 400);
+      }
+    } catch (error: any) {
+      console.error('Property creation failed:', error.message);
+      return json({ 
+        ok: false, 
+        error: `Failed to create property: ${error.message}` 
+      }, 400);
     }
 
-    // Step 3: Create quote in Jobber
-    console.log('Attempting to create quote...');
+    // Step 3: Create quote in Jobber with simplified single line item
+    console.log('Creating quote in Jobber...');
+    
     const quoteMutation = `
-      mutation CreateQuote($clientId: ID!, $title: String!, $lineItems: [LineItemAttributes!]) {
-        quoteCreate(attributes: { clientId: $clientId, title: $title, lineItems: $lineItems }) {
+      mutation CreateQuote($clientId: EncodedId!, $propertyId: EncodedId!, $title: String!) {
+        quoteCreate(attributes: { 
+          clientId: $clientId, 
+          propertyId: $propertyId,
+          title: $title
+        }) {
           quote {
             id
           }
@@ -218,29 +224,12 @@ Deno.serve(async (req) => {
       }
     `;
 
-    // Build line items from sections and windows
-    const lineItems = [];
-    for (const section of (quote.sections || [])) {
-      for (const window of (section.windows || [])) {
-        lineItems.push({
-          name: `${section.name} - ${window.label}`,
-          description: `${window.width_in}" x ${window.height_in}" (Qty: ${window.quantity})`,
-          unitCost: window.override_sell_per_sqft || 0,
-          quantity: window.quantity || 1,
-        });
-      }
-    }
-
-    const quoteVariables: any = {
-      clientId,
-      title: `Quote #${quote.quote_number}`,
-      lineItems,
-    };
-
-    console.log('Quote variables:', JSON.stringify(quoteVariables));
-
     try {
-      const quoteResult = await gql(JOBBER_API, headers, quoteMutation, quoteVariables);
+      const quoteResult = await gql(JOBBER_API, headers, quoteMutation, {
+        clientId: clientId,
+        propertyId: propertyId,
+        title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
+      });
 
       if (quoteResult.quoteCreate.userErrors && quoteResult.quoteCreate.userErrors.length > 0) {
         const errors = quoteResult.quoteCreate.userErrors.map((e: any) => `${e.path?.join('.')}: ${e.message}`).join('; ');
@@ -257,7 +246,9 @@ Deno.serve(async (req) => {
       return json({ 
         ok: true, 
         jobberQuoteId,
-        message: 'Quote pushed to Jobber successfully' 
+        clientId,
+        propertyId,
+        message: 'Quote pushed to Jobber successfully. You can now add line items manually in Jobber.' 
       });
     } catch (error: any) {
       console.error('Quote creation failed:', error.message);
