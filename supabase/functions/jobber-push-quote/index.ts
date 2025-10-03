@@ -285,6 +285,8 @@ Deno.serve(async (req) => {
         input: propertyInput
       });
 
+      console.log('Property creation response:', JSON.stringify(propertyResult, null, 2));
+
       if (propertyResult.propertyCreate?.userErrors?.length) {
         const errors = propertyResult.propertyCreate.userErrors.map((e: any) => e.message).join('; ');
         console.error('Property creation failed:', errors);
@@ -293,6 +295,7 @@ Deno.serve(async (req) => {
 
       // Returns 'properties' (plural array), not 'property'
       const properties = propertyResult.propertyCreate?.properties || [];
+      console.log('Properties returned:', properties);
       
       if (properties.length === 0) {
         console.error('No property returned from creation');
