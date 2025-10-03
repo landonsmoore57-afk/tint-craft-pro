@@ -191,19 +191,21 @@ Deno.serve(async (req) => {
 
     // If no property exists, create one with address info
     if (!propertyId) {
-      console.log('=== Introspecting PropertyInput ===');
-      const propertyInputIntrospection = `
-        query IntrospectPropertyInput {
-          __type(name: "PropertyInput") {
-            name
-            inputFields {
+      console.log('=== Introspecting propertyCreate mutation ===');
+      const propertyCreateIntrospection = `
+        query IntrospectPropertyCreate {
+          __type(name: "Mutation") {
+            fields {
               name
-              type {
+              args {
                 name
-                kind
-                ofType {
+                type {
                   name
                   kind
+                  ofType {
+                    name
+                    kind
+                  }
                 }
               }
             }
@@ -212,16 +214,19 @@ Deno.serve(async (req) => {
       `;
 
       try {
-        const inputResult = await jobberGraphQL(JOBBER_API, headers, propertyInputIntrospection);
-        console.log('PropertyInput fields:', JSON.stringify(inputResult.__type?.inputFields, null, 2));
+        const mutationResult = await jobberGraphQL(JOBBER_API, headers, propertyCreateIntrospection);
+        const propertyCreateField = mutationResult.__type?.fields?.find((f: any) => f.name === 'propertyCreate');
+        console.log('propertyCreate mutation args:', JSON.stringify(propertyCreateField?.args, null, 2));
       } catch (e: any) {
-        console.error('PropertyInput introspection failed:', e.message);
+        console.error('propertyCreate introspection failed:', e.message);
       }
 
-      console.log('=== Creating property ===');
+      console.log('=== Creating property with minimal input ===');
+      
+      // Try creating property with just clientId (maybe input is optional?)
       const propertyMutation = `
-        mutation CreateProperty($clientId: EncodedId!, $input: PropertyInput!) {
-          propertyCreate(clientId: $clientId, input: $input) {
+        mutation CreateProperty($clientId: EncodedId!) {
+          propertyCreate(clientId: $clientId) {
             properties {
               id
             }
@@ -233,20 +238,7 @@ Deno.serve(async (req) => {
         }
       `;
 
-      // Parse site address or use defaults
-      const propertyInput: any = {};
-      
-      if (quote.site_address) {
-        // Try to parse address - if it fails, Jobber might allow minimal/empty address
-        propertyInput.address = {
-          street1: quote.site_address || 'Service Location'
-        };
-      }
-
-      const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { 
-        clientId,
-        input: propertyInput
-      });
+      const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { clientId });
 
       if (propertyResult.propertyCreate?.userErrors?.length) {
         const errors = propertyResult.propertyCreate.userErrors.map((e: any) => e.message).join('; ');
