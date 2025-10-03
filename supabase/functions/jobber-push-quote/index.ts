@@ -157,10 +157,11 @@ Deno.serve(async (req) => {
     // Step 2: Create property if site address exists
     let propertyId = null;
     if (quote.site_address) {
+      console.log('Attempting to create property...');
       const propertyMutation = `
-        mutation CreateProperty($input: PropertyCreateInput!) {
-          propertyCreate(input: $input) {
-            property {
+        mutation CreateProperty($clientId: ID!, $address: AddressInput!) {
+          propertyCreate(input: { clientId: $clientId, address: $address }) {
+            properties {
               id
             }
             userErrors {
@@ -171,22 +172,36 @@ Deno.serve(async (req) => {
         }
       `;
 
-      const propertyResult = await gql(JOBBER_API, headers, propertyMutation, {
-        input: {
-          clientId,
+      try {
+        const propertyResult = await gql(JOBBER_API, headers, propertyMutation, {
+          clientId: clientId,
           address: {
             street1: quote.site_address,
           }
-        }
-      });
+        });
 
-      if (propertyResult.propertyCreate.userErrors.length === 0) {
-        propertyId = propertyResult.propertyCreate.property.id;
-        console.log('Created Jobber property:', propertyId);
+        if (propertyResult.propertyCreate.userErrors && propertyResult.propertyCreate.userErrors.length > 0) {
+          const errors = propertyResult.propertyCreate.userErrors.map((e: any) => `${e.path?.join('.')}: ${e.message}`).join('; ');
+          console.error('Property creation errors:', errors);
+          return json({ 
+            ok: false, 
+            error: `Failed to create property in Jobber: ${errors}` 
+          }, 400);
+        }
+
+        if (propertyResult.propertyCreate.properties && propertyResult.propertyCreate.properties.length > 0) {
+          propertyId = propertyResult.propertyCreate.properties[0].id;
+          console.log('Created Jobber property:', propertyId);
+        }
+      } catch (error: any) {
+        console.error('Property creation failed:', error.message);
+        // Don't fail the whole operation if property creation fails
+        console.log('Continuing without property...');
       }
     }
 
     // Step 3: Create quote in Jobber
+    console.log('Attempting to create quote...');
     const quoteMutation = `
       mutation CreateQuote($input: QuoteCreateInput!) {
         quoteCreate(input: $input) {
@@ -224,26 +239,37 @@ Deno.serve(async (req) => {
       quoteInput.propertyId = propertyId;
     }
 
-    const quoteResult = await gql(JOBBER_API, headers, quoteMutation, {
-      input: quoteInput
-    });
+    console.log('Quote input:', JSON.stringify(quoteInput));
 
-    if (quoteResult.quoteCreate.userErrors.length > 0) {
-      console.error('Failed to create quote:', quoteResult.quoteCreate.userErrors);
+    try {
+      const quoteResult = await gql(JOBBER_API, headers, quoteMutation, {
+        input: quoteInput
+      });
+
+      if (quoteResult.quoteCreate.userErrors && quoteResult.quoteCreate.userErrors.length > 0) {
+        const errors = quoteResult.quoteCreate.userErrors.map((e: any) => `${e.path?.join('.')}: ${e.message}`).join('; ');
+        console.error('Quote creation errors:', errors);
+        return json({ 
+          ok: false, 
+          error: `Failed to create quote in Jobber: ${errors}` 
+        }, 400);
+      }
+
+      const jobberQuoteId = quoteResult.quoteCreate.quote.id;
+      console.log('Successfully created Jobber quote:', jobberQuoteId);
+
+      return json({ 
+        ok: true, 
+        jobberQuoteId,
+        message: 'Quote pushed to Jobber successfully' 
+      });
+    } catch (error: any) {
+      console.error('Quote creation failed:', error.message);
       return json({ 
         ok: false, 
-        error: `Jobber error: ${quoteResult.quoteCreate.userErrors[0].message}` 
+        error: `Failed to create quote: ${error.message}` 
       }, 400);
     }
-
-    const jobberQuoteId = quoteResult.quoteCreate.quote.id;
-    console.log('Successfully created Jobber quote:', jobberQuoteId);
-
-    return json({ 
-      ok: true, 
-      jobberQuoteId,
-      message: 'Quote pushed to Jobber successfully' 
-    });
 
   } catch (error: any) {
     console.error('Error in jobber-push-quote:', error);
