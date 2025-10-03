@@ -157,9 +157,9 @@ Deno.serve(async (req) => {
     // Step 2: Always create property (required for quotes in Jobber)
     console.log('Creating property for quote...');
     const propertyMutation = `
-      mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
+      mutation CreateProperty($clientId: ID!, $input: PropertyCreateInput!) {
         propertyCreate(clientId: $clientId, input: $input) {
-          properties {
+          property {
             id
           }
           userErrors {
@@ -190,8 +190,8 @@ Deno.serve(async (req) => {
         }, 400);
       }
 
-      if (propertyResult.propertyCreate.properties && propertyResult.propertyCreate.properties.length > 0) {
-        propertyId = propertyResult.propertyCreate.properties[0].id;
+      if (propertyResult.propertyCreate.property) {
+        propertyId = propertyResult.propertyCreate.property.id;
         console.log('Created Jobber property:', propertyId);
       } else {
         return json({ 
@@ -207,18 +207,16 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    // Step 3: Create quote in Jobber with simplified single line item
+    // Step 3: Create quote in Jobber
     console.log('Creating quote in Jobber...');
     
     const quoteMutation = `
-      mutation CreateQuote($clientId: EncodedId!, $propertyId: EncodedId!, $title: String!) {
-        quoteCreate(attributes: { 
-          clientId: $clientId, 
-          propertyId: $propertyId,
-          title: $title
-        }) {
+      mutation CreateQuote($input: QuoteCreateInput!) {
+        quoteCreate(input: $input) {
           quote {
             id
+            quoteNumber
+            quoteStatus
           }
           userErrors {
             message
@@ -230,9 +228,11 @@ Deno.serve(async (req) => {
 
     try {
       const quoteResult = await gql(JOBBER_API, headers, quoteMutation, {
-        clientId: clientId,
-        propertyId: propertyId,
-        title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
+        input: {
+          title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
+          clientId: clientId,
+          propertyId: propertyId,
+        }
       });
 
       if (quoteResult.quoteCreate.userErrors && quoteResult.quoteCreate.userErrors.length > 0) {
