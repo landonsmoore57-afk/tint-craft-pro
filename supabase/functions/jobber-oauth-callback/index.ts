@@ -91,8 +91,14 @@ Deno.serve(async (req) => {
 
     console.log('Jobber connected successfully');
 
-    // Redirect back to settings with success message
-    return htmlRedirect(`${returnUrl}/settings?jobber=connected`);
+    // Redirect back to settings with success message using HTTP 302
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...corsHeaders,
+        'Location': `${returnUrl}/settings?jobber=connected`,
+      },
+    });
   } catch (error: any) {
     console.error('Error in jobber-oauth-callback:', error);
     // Try to get return URL from state if available
