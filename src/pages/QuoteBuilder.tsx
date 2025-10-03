@@ -527,12 +527,22 @@ export default function QuoteBuilder() {
       return;
     }
 
+    if (!user?.id) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to push quotes to Jobber",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setPushingToJobber(true);
 
       const { data, error } = await supabase.functions.invoke('jobber-push-quote', {
         body: { 
           quoteId: id,
+          userId: user.id,
         },
       });
 

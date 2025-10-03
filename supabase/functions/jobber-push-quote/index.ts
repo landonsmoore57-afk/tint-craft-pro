@@ -14,41 +14,26 @@ Deno.serve(async (req) => {
   try {
     console.log('Processing push-quote request');
 
-    const { quoteId } = await req.json();
+    const { quoteId, userId } = await req.json();
 
     if (!quoteId) {
       return json({ ok: false, error: 'Missing quoteId' }, 400);
     }
 
-    console.log('Loading quote data:', quoteId);
-
-    // Initialize Supabase client with user's auth (from request header)
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const authHeader = req.headers.get('Authorization');
-    
-    if (!authHeader) {
-      return json({ ok: false, error: 'Not authenticated' }, 401);
+    if (!userId) {
+      return json({ ok: false, error: 'Missing userId' }, 400);
     }
 
-    const supabaseClient = createClient(supabaseUrl, supabaseKey, {
-      global: {
-        headers: { Authorization: authHeader }
-      }
-    });
+    console.log('Loading quote data:', quoteId, 'for user:', userId);
 
-    // Get authenticated user
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    
-    if (userError || !user) {
-      console.error('Authentication failed:', userError);
-      return json({ ok: false, error: 'Not authenticated' }, 401);
-    }
+    // Use service role key for all database operations (app uses custom PIN auth)
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
 
-    const userId = user.id;
-
-    // Load quote with sections and windows - RLS will ensure user has access
-    const { data: quote, error: quoteError } = await supabaseClient
+    // Load quote with sections and windows
+    const { data: quote, error: quoteError } = await supabase
       .from('quotes')
       .select(`
         *,
@@ -61,19 +46,13 @@ Deno.serve(async (req) => {
       .single();
 
     if (quoteError || !quote) {
-      console.error('Quote not found or access denied:', quoteError);
-      return json({ ok: false, error: 'Quote not found or access denied' }, 404);
+      console.error('Quote not found:', quoteError);
+      return json({ ok: false, error: 'Quote not found' }, 404);
     }
 
     console.log('Loading Jobber tokens for user:', userId);
 
-    // Use service role key to access tokens table
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
-
-    const { data: tokens, error: tokensError } = await supabaseAdmin
+    const { data: tokens, error: tokensError } = await supabase
       .from('integration_jobber_tokens')
       .select('*')
       .eq('account_id', userId)
