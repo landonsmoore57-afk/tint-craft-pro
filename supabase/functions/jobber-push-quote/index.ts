@@ -159,8 +159,8 @@ Deno.serve(async (req) => {
     if (quote.site_address) {
       console.log('Attempting to create property...');
       const propertyMutation = `
-        mutation CreateProperty($clientId: ID!, $address: AddressInput!) {
-          propertyCreate(input: { clientId: $clientId, address: $address }) {
+        mutation CreateProperty($input: PropertyCreateInput!) {
+          propertyCreate(input: $input) {
             properties {
               id
             }
@@ -174,9 +174,11 @@ Deno.serve(async (req) => {
 
       try {
         const propertyResult = await gql(JOBBER_API, headers, propertyMutation, {
-          clientId: clientId,
-          address: {
-            street1: quote.site_address,
+          input: {
+            clientId: clientId,
+            address: {
+              street1: quote.site_address,
+            }
           }
         });
 
@@ -203,8 +205,8 @@ Deno.serve(async (req) => {
     // Step 3: Create quote in Jobber
     console.log('Attempting to create quote...');
     const quoteMutation = `
-      mutation CreateQuote($input: QuoteCreateInput!) {
-        quoteCreate(input: $input) {
+      mutation CreateQuote($clientId: ID!, $title: String!, $lineItems: [LineItemAttributes!]) {
+        quoteCreate(attributes: { clientId: $clientId, title: $title, lineItems: $lineItems }) {
           quote {
             id
           }
@@ -229,22 +231,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    const quoteInput: any = {
+    const quoteVariables: any = {
       clientId,
       title: `Quote #${quote.quote_number}`,
       lineItems,
     };
 
-    if (propertyId) {
-      quoteInput.propertyId = propertyId;
-    }
-
-    console.log('Quote input:', JSON.stringify(quoteInput));
+    console.log('Quote variables:', JSON.stringify(quoteVariables));
 
     try {
-      const quoteResult = await gql(JOBBER_API, headers, quoteMutation, {
-        input: quoteInput
-      });
+      const quoteResult = await gql(JOBBER_API, headers, quoteMutation, quoteVariables);
 
       if (quoteResult.quoteCreate.userErrors && quoteResult.quoteCreate.userErrors.length > 0) {
         const errors = quoteResult.quoteCreate.userErrors.map((e: any) => `${e.path?.join('.')}: ${e.message}`).join('; ');
