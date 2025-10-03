@@ -89,7 +89,34 @@ Deno.serve(async (req) => {
 
     console.log('Testing API connection with a simple query first...');
     
-    // First, let's try a simple query to verify the connection and see the schema
+    // First, try introspection to see PropertyCreateInput schema
+    const introspectionQuery = `
+      query IntrospectPropertyCreateInput {
+        __type(name: "PropertyCreateInput") {
+          name
+          inputFields {
+            name
+            type {
+              name
+              kind
+              ofType {
+                name
+                kind
+              }
+            }
+          }
+        }
+      }
+    `;
+    
+    try {
+      const introspectionResult = await gql(JOBBER_API, headers, introspectionQuery);
+      console.log('PropertyCreateInput schema:', JSON.stringify(introspectionResult, null, 2));
+    } catch (error: any) {
+      console.error('Introspection failed:', error.message);
+    }
+    
+    // Also test basic query
     const testQuery = `
       query {
         account {
