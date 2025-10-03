@@ -165,7 +165,8 @@ export default function Settings() {
     }
     
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const startUrl = `${supabaseUrl}/functions/v1/jobber-oauth-start?user_id=${user.id}`;
+    const appOrigin = window.location.origin;
+    const startUrl = `${supabaseUrl}/functions/v1/jobber-oauth-start?user_id=${user.id}&return_url=${encodeURIComponent(appOrigin)}`;
     window.location.href = startUrl;
   };
 

@@ -16,6 +16,7 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url);
     const userId = url.searchParams.get('user_id');
+    const returnUrl = url.searchParams.get('return_url');
 
     if (!userId) {
       return new Response(
@@ -24,8 +25,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Generate state parameter to verify callback
-    const state = `${userId}:${crypto.randomUUID()}`;
+    if (!returnUrl) {
+      return new Response(
+        JSON.stringify({ error: 'Missing return_url parameter' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Generate state parameter to verify callback (includes return URL)
+    const state = `${userId}:${returnUrl}:${crypto.randomUUID()}`;
 
     const AUTH_URL = 'https://api.getjobber.com/api/oauth/authorize';
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
