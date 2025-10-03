@@ -165,12 +165,10 @@ Deno.serve(async (req) => {
     // 7. Get or create property for the client (required for quotes)
     console.log('=== Fetching client properties ===');
     const propertiesQuery = `
-      query GetClientProperties($clientId: ID!) {
+      query GetClientProperties($clientId: EncodedId!) {
         client(id: $clientId) {
           properties {
-            nodes {
-              id
-            }
+            id
           }
         }
       }
@@ -179,7 +177,7 @@ Deno.serve(async (req) => {
     let propertyId = null;
     try {
       const propertiesResult = await jobberGraphQL(JOBBER_API, headers, propertiesQuery, { clientId });
-      const existingProperties = propertiesResult?.client?.properties?.nodes || [];
+      const existingProperties = propertiesResult?.client?.properties || [];
       
       if (existingProperties.length > 0) {
         propertyId = existingProperties[0].id;
@@ -191,13 +189,40 @@ Deno.serve(async (req) => {
       console.error('Property query failed:', e.message);
     }
 
-    // If no property exists, create one
+    // If no property exists, create one with address info
     if (!propertyId) {
+      console.log('=== Introspecting PropertyInput ===');
+      const propertyInputIntrospection = `
+        query IntrospectPropertyInput {
+          __type(name: "PropertyInput") {
+            name
+            inputFields {
+              name
+              type {
+                name
+                kind
+                ofType {
+                  name
+                  kind
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      try {
+        const inputResult = await jobberGraphQL(JOBBER_API, headers, propertyInputIntrospection);
+        console.log('PropertyInput fields:', JSON.stringify(inputResult.__type?.inputFields, null, 2));
+      } catch (e: any) {
+        console.error('PropertyInput introspection failed:', e.message);
+      }
+
       console.log('=== Creating property ===');
       const propertyMutation = `
-        mutation CreateProperty($clientId: ID!) {
-          propertyCreate(clientId: $clientId) {
-            property {
+        mutation CreateProperty($clientId: EncodedId!, $input: PropertyInput!) {
+          propertyCreate(clientId: $clientId, input: $input) {
+            properties {
               id
             }
             userErrors {
@@ -208,7 +233,20 @@ Deno.serve(async (req) => {
         }
       `;
 
-      const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { clientId });
+      // Parse site address or use defaults
+      const propertyInput: any = {};
+      
+      if (quote.site_address) {
+        // Try to parse address - if it fails, Jobber might allow minimal/empty address
+        propertyInput.address = {
+          street1: quote.site_address || 'Service Location'
+        };
+      }
+
+      const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { 
+        clientId,
+        input: propertyInput
+      });
 
       if (propertyResult.propertyCreate?.userErrors?.length) {
         const errors = propertyResult.propertyCreate.userErrors.map((e: any) => e.message).join('; ');
@@ -216,11 +254,12 @@ Deno.serve(async (req) => {
         return json({ ok: false, error: `Failed to create property: ${errors}` }, 400);
       }
 
-      propertyId = propertyResult.propertyCreate?.property?.id;
-      if (!propertyId) {
+      const properties = propertyResult.propertyCreate?.properties || [];
+      if (!properties.length) {
         console.error('No property ID returned');
         return json({ ok: false, error: 'Failed to create property for quote' }, 400);
       }
+      propertyId = properties[0].id;
       console.log('Property created:', propertyId);
     }
 
