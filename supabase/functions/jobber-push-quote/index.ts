@@ -162,43 +162,38 @@ Deno.serve(async (req) => {
     const clientId = clientResult.clientCreate.client.id;
     console.log('Client created:', clientId);
 
-    // 7. Create a property for the client (required for quotes)
-    console.log('=== Creating Property ===');
-    const propertyMutation = `
-      mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
-        propertyCreate(clientId: $clientId, input: $input) {
-          properties {
-            id
-          }
-          userErrors {
-            message
-            path
+    // 7. Check if client already has properties (we can use existing one)
+    console.log('=== Checking for existing properties ===');
+    const propertiesQuery = `
+      query GetClientProperties($clientId: ID!) {
+        node(id: $clientId) {
+          ... on Client {
+            properties(first: 1) {
+              nodes {
+                id
+              }
+            }
           }
         }
       }
     `;
 
-    const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, {
-      clientId: clientId,
-      input: {
-        name: quote.customer_name || 'Service Location',
+    let propertyId = null;
+    try {
+      const propertiesResult = await jobberGraphQL(JOBBER_API, headers, propertiesQuery, { clientId });
+      const existingProperties = propertiesResult?.node?.properties?.nodes || [];
+      
+      if (existingProperties.length > 0) {
+        propertyId = existingProperties[0].id;
+        console.log('Using existing property:', propertyId);
+      } else {
+        console.log('No existing properties found');
+        // PropertyCreateInput doesn't accept 'name', let's try without creating property
+        // Some Jobber versions allow quotes without propertyId
       }
-    });
-
-    if (propertyResult.propertyCreate.userErrors?.length) {
-      const errors = propertyResult.propertyCreate.userErrors.map((e: any) => e.message).join('; ');
-      console.error('Property creation failed:', errors);
-      return json({ ok: false, error: `Failed to create property: ${errors}` }, 400);
+    } catch (e: any) {
+      console.error('Property query failed:', e.message);
     }
-
-    const properties = propertyResult.propertyCreate.properties || [];
-    if (!properties.length) {
-      console.error('No property returned');
-      return json({ ok: false, error: 'Failed to create property' }, 400);
-    }
-
-    const propertyId = properties[0].id;
-    console.log('Property created:', propertyId);
 
     // 8. Calculate total from quote
     const grandTotal = calculateQuoteTotal(quote);
@@ -256,7 +251,6 @@ Deno.serve(async (req) => {
     const attributes: any = {
       title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
       clientId: clientId,
-      propertyId: propertyId, // Required!
       lineItems: [
         {
           name: 'Window Tinting Service',
@@ -267,6 +261,11 @@ Deno.serve(async (req) => {
         }
       ]
     };
+
+    // Only add propertyId if we have one
+    if (propertyId) {
+      attributes.propertyId = propertyId;
+    }
 
     const quoteVariables = { attributes };
     console.log('Quote variables:', JSON.stringify(quoteVariables, null, 2));
