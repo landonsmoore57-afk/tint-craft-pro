@@ -14,13 +14,18 @@ Deno.serve(async (req) => {
   try {
     console.log('Processing push-quote request');
 
-    const { quoteId, userId } = await req.json();
+    const body = await req.json();
+    console.log('Request body:', JSON.stringify(body));
+    
+    const { quoteId, userId } = body;
 
     if (!quoteId) {
+      console.error('Missing quoteId in request');
       return json({ ok: false, error: 'Missing quoteId' }, 400);
     }
 
     if (!userId) {
+      console.error('Missing userId in request');
       return json({ ok: false, error: 'Missing userId' }, 400);
     }
 
