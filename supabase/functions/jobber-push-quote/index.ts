@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
 
     const clientResult = await gql(JOBBER_API, headers, clientMutation, {
       input: {
-        name: quote.customer_name,
+        companyName: quote.customer_name,
         emails: quote.customer_email ? [{ address: quote.customer_email }] : [],
         phones: quote.customer_phone ? [{ number: quote.customer_phone }] : [],
       }
