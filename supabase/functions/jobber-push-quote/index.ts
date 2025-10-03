@@ -156,6 +156,37 @@ Deno.serve(async (req) => {
 
     // Step 2: Always create property (required for quotes in Jobber)
     console.log('Creating property for quote...');
+    
+    // Helper to parse address into separate fields
+    const parseAddress = (raw: string | null) => {
+      if (!raw) {
+        return { 
+          street1: 'Service Location', 
+          street2: null, 
+          city: '', 
+          province: '', 
+          postalCode: '', 
+          country: 'US' 
+        };
+      }
+      
+      // Try to parse: "1411 Cypress Dr Pacific, MO 63069"
+      const match = raw.match(/^(.+?)\s+([^,]+),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+      if (!match) {
+        return { 
+          street1: raw, 
+          street2: null, 
+          city: '', 
+          province: '', 
+          postalCode: '', 
+          country: 'US' 
+        };
+      }
+      
+      const [, street1, city, province, postalCode] = match;
+      return { street1, street2: null, city, province, postalCode, country: 'US' };
+    };
+    
     const propertyMutation = `
       mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
         propertyCreate(clientId: $clientId, input: $input) {
@@ -172,26 +203,33 @@ Deno.serve(async (req) => {
 
     let propertyId = null;
     try {
-      const propertyResult = await gql(JOBBER_API, headers, propertyMutation, {
+      const address = parseAddress(quote.site_address);
+      const propertyVariables = {
         clientId: clientId,
         input: {
-          address: {
-            street1: quote.site_address || quote.customer_name || 'Service Location',
-          }
+          name: 'Service Location',
+          address: address
         }
-      });
+      };
+      
+      console.log('Property variables:', JSON.stringify(propertyVariables, null, 2));
+      
+      const propertyResult = await gql(JOBBER_API, headers, propertyMutation, propertyVariables);
 
-      if (propertyResult.propertyCreate.userErrors && propertyResult.propertyCreate.userErrors.length > 0) {
-        const errors = propertyResult.propertyCreate.userErrors.map((e: any) => `${e.path?.join('.')}: ${e.message}`).join('; ');
+      const errs = propertyResult?.propertyCreate?.userErrors ?? [];
+      if (errs.length > 0) {
+        const errors = errs.map((e: any) => `${(e.path || []).join('.')}: ${e.message}`).join('; ');
         console.error('Property creation errors:', errors);
+        console.error('Property result:', JSON.stringify(propertyResult, null, 2));
         return json({ 
           ok: false, 
           error: `Failed to create property in Jobber: ${errors}` 
         }, 400);
       }
 
-      if (propertyResult.propertyCreate.properties && propertyResult.propertyCreate.properties.length > 0) {
-        propertyId = propertyResult.propertyCreate.properties[0].id;
+      const propsArr = propertyResult?.propertyCreate?.properties ?? [];
+      if (propsArr.length > 0) {
+        propertyId = propsArr[0].id;
         console.log('Created Jobber property:', propertyId);
       } else {
         return json({ 
