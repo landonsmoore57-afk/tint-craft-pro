@@ -276,14 +276,9 @@ Deno.serve(async (req) => {
         }
       `;
 
+      // PropertyCreateInput doesn't accept address field
+      // Create with empty input - address can be added later if needed
       const propertyInput: any = {};
-      
-      // Add address if available
-      if (quote.site_address) {
-        propertyInput.address = {
-          street1: quote.site_address,
-        };
-      }
 
       const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { 
         clientId: clientId,
