@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
     });
 
     const tokens = await tokenRes.json();
+    console.log('Token exchange response:', JSON.stringify(tokens, null, 2));
 
     if (!tokenRes.ok) {
       console.error('Token exchange failed:', tokens);
@@ -68,7 +69,14 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const expiresAt = new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString();
+    // Calculate expiration with validation
+    let expiresAt: string;
+    if (tokens.expires_in && typeof tokens.expires_in === 'number' && tokens.expires_in > 0) {
+      expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+    } else {
+      console.warn('No valid expires_in in token response, using 1 hour default');
+      expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+    }
 
     // Upsert tokens into database
     const { error: dbError } = await supabase
