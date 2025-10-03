@@ -55,6 +55,10 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: 'Quote not found' }, 404);
     }
 
+    // Calculate grand total using the same logic as the frontend
+    const grandTotal = calculateQuoteTotal(quote);
+    console.log('Calculated grand total:', grandTotal);
+
     console.log('Loading Jobber tokens for user:', userId);
 
     const { data: tokens, error: tokensError } = await supabase
@@ -87,57 +91,7 @@ Deno.serve(async (req) => {
       'X-JOBBER-GRAPHQL-VERSION': '2025-01-20',
     };
 
-    console.log('Testing API connection with a simple query first...');
-    
-    // First, try introspection to see PropertyCreateInput schema
-    const introspectionQuery = `
-      query IntrospectPropertyCreateInput {
-        __type(name: "PropertyCreateInput") {
-          name
-          inputFields {
-            name
-            type {
-              name
-              kind
-              ofType {
-                name
-                kind
-              }
-            }
-          }
-        }
-      }
-    `;
-    
-    try {
-      const introspectionResult = await gql(JOBBER_API, headers, introspectionQuery);
-      console.log('PropertyCreateInput schema:', JSON.stringify(introspectionResult, null, 2));
-    } catch (error: any) {
-      console.error('Introspection failed:', error.message);
-    }
-    
-    // Also test basic query
-    const testQuery = `
-      query {
-        account {
-          id
-          name
-        }
-      }
-    `;
-    
-    try {
-      const testResult = await gql(JOBBER_API, headers, testQuery);
-      console.log('API connection successful:', JSON.stringify(testResult));
-    } catch (error: any) {
-      console.error('API connection test failed:', error.message);
-      return json({ 
-        ok: false, 
-        error: `Jobber API connection failed: ${error.message}. Please check your Jobber connection in Settings.` 
-      }, 400);
-    }
-
-    // Step 1: Try to create client with minimal fields
+    // Step 1: Create client with minimal fields
     console.log('Attempting to create/find client...');
     const clientMutation = `
       mutation CreateClient($input: ClientCreateInput!) {
@@ -181,44 +135,22 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    // Step 2: Always create property (required for quotes in Jobber)
+    // Step 2: Create property (required for quotes in Jobber)
+    // Note: clientId is EncodedId!, returns properties[] (array)
     console.log('Creating property for quote...');
-    
-    // Helper to parse address into separate fields
-    const parseAddress = (raw: string | null) => {
-      if (!raw) {
-        return { 
-          street1: 'Service Location', 
-          street2: null, 
-          city: '', 
-          province: '', 
-          postalCode: '', 
-          country: 'US' 
-        };
-      }
-      
-      // Try to parse: "1411 Cypress Dr Pacific, MO 63069"
-      const match = raw.match(/^(.+?)\s+([^,]+),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
-      if (!match) {
-        return { 
-          street1: raw, 
-          street2: null, 
-          city: '', 
-          province: '', 
-          postalCode: '', 
-          country: 'US' 
-        };
-      }
-      
-      const [, street1, city, province, postalCode] = match;
-      return { street1, street2: null, city, province, postalCode, country: 'US' };
-    };
     
     const propertyMutation = `
       mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
         propertyCreate(clientId: $clientId, input: $input) {
           properties {
             id
+            address {
+              street1
+              city
+              province
+              postalCode
+              country
+            }
           }
           userErrors {
             message
@@ -232,9 +164,9 @@ Deno.serve(async (req) => {
     try {
       const address = parseAddress(quote.site_address);
       const propertyVariables = {
-        clientId: clientId,
+        clientId: clientId, // EncodedId!
         input: {
-          name: 'Service Location',
+          name: quote.customer_name || 'Service Location',
           address: address
         }
       };
@@ -250,7 +182,8 @@ Deno.serve(async (req) => {
         console.error('Property result:', JSON.stringify(propertyResult, null, 2));
         return json({ 
           ok: false, 
-          error: `Failed to create property in Jobber: ${errors}` 
+          error: `Failed to create property in Jobber: ${errors}`,
+          meta: { propertyVariables }
         }, 400);
       }
 
@@ -261,7 +194,8 @@ Deno.serve(async (req) => {
       } else {
         return json({ 
           ok: false, 
-          error: 'Failed to create property (required for quotes)' 
+          error: 'Failed to create property (required for quotes)',
+          meta: { propertyVariables, propertyResult }
         }, 400);
       }
     } catch (error: any) {
@@ -272,8 +206,8 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    // Step 3: Create quote in Jobber
-    console.log('Creating quote in Jobber...');
+    // Step 3: Create quote with ONE line item for the grand total
+    console.log('Creating quote in Jobber with single line item...');
     
     const quoteMutation = `
       mutation CreateQuote($input: QuoteCreateInput!) {
@@ -292,32 +226,55 @@ Deno.serve(async (req) => {
     `;
 
     try {
-      const quoteResult = await gql(JOBBER_API, headers, quoteMutation, {
+      const quoteVariables = {
         input: {
           title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
-          clientId: clientId,
-          propertyId: propertyId,
+          clientId: clientId,     // EncodedId!
+          propertyId: propertyId, // EncodedId!
+          lineItems: [
+            {
+              name: 'Window Tinting Project Total',
+              description: 'Complete window tinting installation from Tint-Craft Pro',
+              quantity: 1,
+              unitPrice: grandTotal,
+            }
+          ],
+          taxRate: 0, // We already calculated tax in our system
         }
-      });
+      };
+
+      console.log('Quote variables:', JSON.stringify(quoteVariables, null, 2));
+
+      const quoteResult = await gql(JOBBER_API, headers, quoteMutation, quoteVariables);
 
       if (quoteResult.quoteCreate.userErrors && quoteResult.quoteCreate.userErrors.length > 0) {
         const errors = quoteResult.quoteCreate.userErrors.map((e: any) => `${e.path?.join('.')}: ${e.message}`).join('; ');
         console.error('Quote creation errors:', errors);
         return json({ 
           ok: false, 
-          error: `Failed to create quote in Jobber: ${errors}` 
+          error: `Failed to create quote in Jobber: ${errors}`,
+          meta: { quoteVariables }
         }, 400);
       }
 
-      const jobberQuoteId = quoteResult.quoteCreate.quote.id;
-      console.log('Successfully created Jobber quote:', jobberQuoteId);
+      const jobberQuote = quoteResult.quoteCreate.quote;
+      if (!jobberQuote?.id) {
+        return json({ 
+          ok: false, 
+          error: 'QuoteCreate returned no id',
+          meta: { quoteVariables, quoteResult }
+        }, 400);
+      }
+
+      console.log('Successfully created Jobber quote:', jobberQuote.id);
 
       return json({ 
         ok: true, 
-        jobberQuoteId,
+        jobberQuote: jobberQuote,
         clientId,
         propertyId,
-        message: 'Quote pushed to Jobber successfully. You can now add line items manually in Jobber.' 
+        grandTotal,
+        message: `Quote successfully created in Jobber as #${jobberQuote.quoteNumber}` 
       });
     } catch (error: any) {
       console.error('Quote creation failed:', error.message);
@@ -336,9 +293,92 @@ Deno.serve(async (req) => {
   }
 });
 
+// Calculate the total for the quote (matching frontend calculation logic)
+function calculateQuoteTotal(quote: any): number {
+  let subtotal = 0;
+
+  // Sum up all windows in all sections
+  if (quote.sections && Array.isArray(quote.sections)) {
+    for (const section of quote.sections) {
+      if (section.windows && Array.isArray(section.windows)) {
+        for (const window of section.windows) {
+          const width = window.width_in || 0;
+          const height = window.height_in || 0;
+          const quantity = window.quantity || 1;
+          const sqft = (width * height) / 144; // convert sq inches to sq feet
+          
+          // Get the sell price per sqft (either from window override or section film or global)
+          let sellPerSqft = 0;
+          if (window.override_sell_per_sqft) {
+            sellPerSqft = parseFloat(window.override_sell_per_sqft);
+          }
+          // Note: You may need to join film data here if not using override
+          // For now, defaulting to a reasonable estimate
+          
+          const windowTotal = sqft * quantity * (sellPerSqft || 10); // default $10/sqft if no price
+          subtotal += windowTotal;
+        }
+      }
+    }
+  }
+
+  // Apply discount
+  const discountFlat = parseFloat(quote.discount_flat) || 0;
+  const discountPercent = parseFloat(quote.discount_percent) || 0;
+  
+  subtotal -= discountFlat;
+  subtotal -= (subtotal * (discountPercent / 100));
+
+  // Add travel fee
+  const travelFee = parseFloat(quote.travel_fee) || 0;
+  let travelSubtotal = travelFee;
+  if (!quote.travel_taxable) {
+    // If travel is not taxable, add it after tax calculation
+  }
+
+  // Apply tax
+  const taxPercent = parseFloat(quote.tax_percent) || 0;
+  const taxAmount = (subtotal + (quote.travel_taxable ? travelFee : 0)) * (taxPercent / 100);
+
+  // Calculate grand total
+  const grandTotal = subtotal + taxAmount + (!quote.travel_taxable ? travelFee : 0);
+
+  return Math.round(grandTotal * 100) / 100; // Round to 2 decimals
+}
+
+// Parse a single-line address into Jobber's AddressInput format
+function parseAddress(raw: string | null): any {
+  if (!raw) {
+    return { 
+      street1: 'Service Location', 
+      street2: null, 
+      city: '', 
+      province: '', 
+      postalCode: '', 
+      country: 'US' 
+    };
+  }
+  
+  // Try to parse: "1411 Cypress Dr Pacific, MO 63069"
+  const match = raw.match(/^(.+?)\s+([^,]+),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+  if (!match) {
+    return { 
+      street1: raw, 
+      street2: null, 
+      city: '', 
+      province: '', 
+      postalCode: '', 
+      country: 'US' 
+    };
+  }
+  
+  const [, street1, city, province, postalCode] = match;
+  return { street1, street2: null, city, province, postalCode, country: 'US' };
+}
+
 async function gql(endpoint: string, headers: any, query: string, variables?: any) {
-  console.log('Making GraphQL request to:', endpoint);
-  console.log('Variables:', JSON.stringify(variables));
+  console.log('Making GraphQL request');
+  console.log('Variables:', JSON.stringify(variables, null, 2));
   
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -355,7 +395,7 @@ async function gql(endpoint: string, headers: any, query: string, variables?: an
   }
 
   const result = await response.json();
-  console.log('GraphQL result:', JSON.stringify(result));
+  console.log('GraphQL result:', JSON.stringify(result, null, 2));
   
   if (result.errors) {
     console.error('GraphQL errors:', result.errors);
