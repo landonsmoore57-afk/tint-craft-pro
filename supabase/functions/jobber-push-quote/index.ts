@@ -108,7 +108,6 @@ Deno.serve(async (req) => {
           access_token: refreshData.access_token,
           refresh_token: refreshData.refresh_token,
           expires_at: newExpiresAt.toISOString(),
-          updated_at: new Date().toISOString(),
         })
         .eq('account_id', userId);
       
