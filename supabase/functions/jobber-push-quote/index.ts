@@ -267,7 +267,7 @@ Deno.serve(async (req) => {
         $clientId: EncodedId!,
         $propertyId: EncodedId!,
         $title: String!,
-        $lineItems: [QuoteLineItemAttributes!]!
+        $lineItems: [QuoteCreateLineItemAttributes!]!
       ) {
         quoteCreate(attributes: {
           clientId: $clientId,
