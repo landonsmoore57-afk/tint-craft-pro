@@ -263,8 +263,18 @@ Deno.serve(async (req) => {
     console.log('=== Creating Jobber Quote ===');
     
     const quoteMutation = `
-      mutation CreateQuote($input: QuoteCreateInput!) {
-        quoteCreate(input: $input) {
+      mutation CreateQuote(
+        $clientId: EncodedId!,
+        $propertyId: EncodedId!,
+        $title: String!,
+        $lineItems: [QuoteLineItemAttributes!]!
+      ) {
+        quoteCreate(attributes: {
+          clientId: $clientId,
+          propertyId: $propertyId,
+          title: $title,
+          lineItems: $lineItems
+        }) {
           quote {
             id
             quoteNumber
@@ -291,7 +301,19 @@ Deno.serve(async (req) => {
       quote.notes_customer || 'Complete window tinting installation',
     ].filter(Boolean).join('\n');
 
-    const quoteInput = {
+    console.log('Creating quote with variables:', JSON.stringify({
+      clientId: clientId,
+      propertyId: propertyId,
+      title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
+      lineItems: [{
+        name: 'Window Tinting Service',
+        description: description,
+        unitCost: grandTotal,
+        qty: 1,
+      }]
+    }, null, 2));
+
+    const quoteResult = await jobberGraphQL(JOBBER_API, headers, quoteMutation, {
       clientId: clientId,
       propertyId: propertyId,
       title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
@@ -303,12 +325,6 @@ Deno.serve(async (req) => {
           qty: 1,
         }
       ]
-    };
-
-    console.log('Creating quote with input:', JSON.stringify(quoteInput, null, 2));
-
-    const quoteResult = await jobberGraphQL(JOBBER_API, headers, quoteMutation, {
-      input: quoteInput
     });
 
     if (quoteResult.quoteCreate?.userErrors?.length) {
