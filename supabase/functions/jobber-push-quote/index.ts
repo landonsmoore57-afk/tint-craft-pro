@@ -481,8 +481,12 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
     }
   }
 
-  // Calculate materials (using no materials for simplicity - can be enhanced later)
-  const materialsTotal = 0; // Or calculate based on gasket/caulk if needed
+  // Calculate materials based on security film
+  // If there's security film, use gasket pricing; otherwise no materials
+  let materialsTotal = 0;
+  if (totalLinearFeetSecurity > 0 && gasket) {
+    materialsTotal = totalLinearFeetSecurity * gasket.sell_per_linear_ft;
+  }
 
   // Calculate discounts and totals
   const subtotal = windowsSubtotal + materialsTotal;
