@@ -227,84 +227,37 @@ Deno.serve(async (req) => {
     }
 
     // 8. Get properties for this client (CORRECTED)
-    console.log('=== Getting/Creating Property ===');
+    console.log('=== Getting Client Property ===');
     
-    try {
-      // Properties is a simple array, not a connection
-      const propertiesQuery = `
-        query GetClientProperties($clientId: EncodedId!) {
-          client(id: $clientId) {
+    // Every client should have at least one property (Jobber auto-creates one)
+    const propertiesQuery = `
+      query GetClientProperties($clientId: EncodedId!) {
+        client(id: $clientId) {
+          properties {
             id
-            properties {
-              id
-            }
           }
         }
-      `;
-
-      const propertiesResult = await jobberGraphQL(JOBBER_API, headers, propertiesQuery, { 
-        clientId 
-      });
-
-      const properties = propertiesResult?.client?.properties || [];
-      
-      if (properties.length > 0) {
-        propertyId = properties[0].id;
-        console.log('Found existing property:', propertyId);
       }
-    } catch (e: any) {
-      console.log('Property query failed:', e.message);
-      // Will create new property below
+    `;
+
+    const propertiesResult = await jobberGraphQL(JOBBER_API, headers, propertiesQuery, { 
+      clientId 
+    });
+
+    console.log('Client properties:', JSON.stringify(propertiesResult, null, 2));
+
+    const properties = propertiesResult?.client?.properties || [];
+    
+    if (properties.length === 0) {
+      return json({ 
+        ok: false, 
+        error: 'Client has no properties. Please create a property for this client in Jobber first.'
+      }, 400);
     }
-
-    // Create property if none exists
-    if (!propertyId) {
-      console.log('Creating new property...');
-      
-      const propertyMutation = `
-        mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
-          propertyCreate(clientId: $clientId, input: $input) {
-            properties {
-              id
-            }
-            userErrors {
-              message
-              path
-            }
-          }
-        }
-      `;
-
-      const propertyInput: any = {};
-
-      const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { 
-        clientId: clientId,
-        input: propertyInput
-      });
-
-      console.log('Property creation response:', JSON.stringify(propertyResult, null, 2));
-
-      if (propertyResult.propertyCreate?.userErrors?.length) {
-        const errors = propertyResult.propertyCreate.userErrors.map((e: any) => e.message).join('; ');
-        console.error('Property creation failed:', errors);
-        return json({ ok: false, error: `Failed to create property: ${errors}` }, 400);
-      }
-
-      // PropertyCreatePayload returns 'properties' (plural array)
-      const properties = propertyResult.propertyCreate?.properties || [];
-      
-      if (properties.length === 0) {
-        console.error('Property creation succeeded but returned empty array');
-        return json({ 
-          ok: false, 
-          error: 'Property creation succeeded but no property was returned',
-          debug: propertyResult
-        }, 400);
-      }
-      
-      propertyId = properties[0].id;
-      console.log('Property created successfully:', propertyId);
-    }
+    
+    // Use the first property (Jobber's default)
+    propertyId = properties[0].id;
+    console.log('Using property:', propertyId);
 
     // 9. Create quote in Jobber
     console.log('=== Creating Jobber Quote ===');
