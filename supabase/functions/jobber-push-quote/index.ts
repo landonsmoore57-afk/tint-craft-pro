@@ -263,7 +263,10 @@ Deno.serve(async (req) => {
         }
       `;
 
-      const propertyInput: any = {};
+      const propertyInput: any = {
+        // Add a name for the property - this may be required
+        propertyName: quote.site_address || 'Primary Location'
+      };
       
       // Add address if available
       if (quote.site_address) {
@@ -286,10 +289,10 @@ Deno.serve(async (req) => {
         return json({ ok: false, error: `Failed to create property: ${errors}` }, 400);
       }
 
-      console.log('Property created successfully, waiting 1 second...');
+      console.log('Property created successfully, waiting 2 seconds...');
       
-      // Wait for Jobber to process the creation
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Increase wait time to 2 seconds for Jobber's eventual consistency
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Query again for the newly created property
       console.log('Querying for newly created property...');
@@ -305,7 +308,7 @@ Deno.serve(async (req) => {
         console.error('Property was created but still not found in query');
         return json({ 
           ok: false, 
-          error: 'Property creation succeeded but property not found immediately. Please try pushing the quote again.'
+          error: 'Property creation succeeded but property not found after 2 seconds. This may be a Jobber API delay. Please try again in a moment.'
         }, 500);
       }
     }
@@ -364,7 +367,8 @@ Deno.serve(async (req) => {
         name: 'Window Tinting Service',
         description: description,
         unitCost: grandTotal,
-        qty: 1,
+        quantity: 1,
+        saveToProductsAndServices: false
       }]
     }, null, 2));
 
@@ -377,7 +381,8 @@ Deno.serve(async (req) => {
           name: 'Window Tinting Service',
           description: description,
           unitCost: grandTotal,
-          qty: 1,
+          quantity: 1,
+          saveToProductsAndServices: false
         }
       ]
     });
