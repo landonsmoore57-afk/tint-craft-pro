@@ -226,10 +226,10 @@ Deno.serve(async (req) => {
       console.log('Client created:', clientId);
     }
 
-    // 8. Get properties for this client (CORRECTED)
-    console.log('=== Getting Client Property ===');
+    // 8. Get or create property
+    console.log('=== Getting/Creating Property ===');
     
-    // Every client should have at least one property (Jobber auto-creates one)
+    // First, query for existing properties
     const propertiesQuery = `
       query GetClientProperties($clientId: EncodedId!) {
         client(id: $clientId) {
@@ -240,22 +240,77 @@ Deno.serve(async (req) => {
       }
     `;
 
-    const propertiesResult = await jobberGraphQL(JOBBER_API, headers, propertiesQuery, { 
+    let propertiesResult = await jobberGraphQL(JOBBER_API, headers, propertiesQuery, { 
       clientId 
     });
 
-    console.log('Client properties:', JSON.stringify(propertiesResult, null, 2));
+    console.log('Initial properties check:', JSON.stringify(propertiesResult, null, 2));
 
-    const properties = propertiesResult?.client?.properties || [];
+    let properties = propertiesResult?.client?.properties || [];
     
+    // If no properties exist, create one
     if (properties.length === 0) {
-      return json({ 
-        ok: false, 
-        error: 'Client has no properties. Please create a property for this client in Jobber first.'
-      }, 400);
+      console.log('No properties found, creating new property...');
+      
+      const propertyMutation = `
+        mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
+          propertyCreate(clientId: $clientId, input: $input) {
+            userErrors {
+              message
+              path
+            }
+          }
+        }
+      `;
+
+      const propertyInput: any = {};
+      
+      // Add address if available
+      if (quote.site_address) {
+        propertyInput.address = {
+          street1: quote.site_address,
+        };
+      }
+
+      console.log('Creating property with input:', JSON.stringify(propertyInput, null, 2));
+
+      const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { 
+        clientId: clientId,
+        input: propertyInput
+      });
+
+      // Check for errors
+      if (propertyResult.propertyCreate?.userErrors?.length) {
+        const errors = propertyResult.propertyCreate.userErrors.map((e: any) => e.message).join('; ');
+        console.error('Property creation failed:', errors);
+        return json({ ok: false, error: `Failed to create property: ${errors}` }, 400);
+      }
+
+      console.log('Property created successfully, waiting 1 second...');
+      
+      // Wait for Jobber to process the creation
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Query again for the newly created property
+      console.log('Querying for newly created property...');
+      propertiesResult = await jobberGraphQL(JOBBER_API, headers, propertiesQuery, { 
+        clientId 
+      });
+
+      console.log('Properties after creation:', JSON.stringify(propertiesResult, null, 2));
+
+      properties = propertiesResult?.client?.properties || [];
+      
+      if (properties.length === 0) {
+        console.error('Property was created but still not found in query');
+        return json({ 
+          ok: false, 
+          error: 'Property creation succeeded but property not found immediately. Please try pushing the quote again.'
+        }, 500);
+      }
     }
     
-    // Use the first property (Jobber's default)
+    // Use the first property (or the newly created one)
     propertyId = properties[0].id;
     console.log('Using property:', propertyId);
 
