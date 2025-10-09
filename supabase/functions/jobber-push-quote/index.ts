@@ -229,12 +229,14 @@ Deno.serve(async (req) => {
     // 8. Get or create property
     console.log('=== Getting/Creating Property ===');
     
-    // First, query for existing properties
+    // Query for existing properties - FIXED FIELD NAME
     const propertiesQuery = `
       query GetClientProperties($clientId: EncodedId!) {
         client(id: $clientId) {
-          properties {
-            id
+          clientProperties {
+            nodes {
+              id
+            }
           }
         }
       }
@@ -246,7 +248,7 @@ Deno.serve(async (req) => {
 
     console.log('Initial properties check:', JSON.stringify(propertiesResult, null, 2));
 
-    let properties = propertiesResult?.client?.properties || [];
+    let properties = propertiesResult?.client?.clientProperties?.nodes || [];
     
     // If no properties exist, create one
     if (properties.length === 0) {
@@ -263,10 +265,7 @@ Deno.serve(async (req) => {
         }
       `;
 
-      const propertyInput: any = {
-        // Add a name for the property - this may be required
-        propertyName: quote.site_address || 'Primary Location'
-      };
+      const propertyInput: any = {};
       
       // Add address if available
       if (quote.site_address) {
@@ -289,12 +288,12 @@ Deno.serve(async (req) => {
         return json({ ok: false, error: `Failed to create property: ${errors}` }, 400);
       }
 
-      console.log('Property created successfully, waiting 2 seconds...');
+      console.log('Property created successfully, waiting 1.5 seconds...');
       
-      // Increase wait time to 2 seconds for Jobber's eventual consistency
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait for Jobber to process the creation
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Query again for the newly created property
+      // Query again for the newly created property - USING CORRECT FIELD NAME
       console.log('Querying for newly created property...');
       propertiesResult = await jobberGraphQL(JOBBER_API, headers, propertiesQuery, { 
         clientId 
@@ -302,13 +301,13 @@ Deno.serve(async (req) => {
 
       console.log('Properties after creation:', JSON.stringify(propertiesResult, null, 2));
 
-      properties = propertiesResult?.client?.properties || [];
+      properties = propertiesResult?.client?.clientProperties?.nodes || [];
       
       if (properties.length === 0) {
         console.error('Property was created but still not found in query');
         return json({ 
           ok: false, 
-          error: 'Property creation succeeded but property not found after 2 seconds. This may be a Jobber API delay. Please try again in a moment.'
+          error: 'Property creation succeeded but property not found after waiting. Please try pushing the quote again.'
         }, 500);
       }
     }
