@@ -46,7 +46,19 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: 'Quote not found' }, 404);
     }
 
-    console.log('Quote loaded:', quote.quote_number);
+    console.log('=== QUOTE DATA LOADED ===');
+    console.log('Quote number:', quote.quote_number);
+    console.log('Sections count:', quote.sections?.length || 0);
+    console.log('Quote structure:', JSON.stringify({
+      id: quote.id,
+      sectionsCount: quote.sections?.length,
+      sections: quote.sections?.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        windowsCount: s.windows?.length,
+        section_film_id: s.section_film_id
+      }))
+    }, null, 2));
 
     // 2. Load films and materials for calculation
     const { data: films } = await supabase.from('films').select('*');
@@ -55,6 +67,11 @@ Deno.serve(async (req) => {
     const filmsMap = new Map(films?.map((f: any) => [f.id, f]) || []);
     const gasket = materials?.find((m: any) => m.key === 'gasket');
     const caulk = materials?.find((m: any) => m.key === 'caulk');
+    
+    console.log('=== FILMS & MATERIALS LOADED ===');
+    console.log('Films loaded:', films?.length || 0);
+    console.log('Gasket found:', !!gasket, gasket ? `sell_per_linear_ft: ${gasket.sell_per_linear_ft}` : '');
+    console.log('Global film ID:', quote.global_film_id);
 
     // 3. Get Jobber tokens
     const { data: tokens, error: tokensError } = await supabase
@@ -137,8 +154,9 @@ Deno.serve(async (req) => {
     };
 
     // 6. Calculate quote total
+    console.log('=== CALLING calculateQuoteTotal ===');
     const grandTotal = calculateQuoteTotal(quote, filmsMap, gasket, caulk);
-    console.log('Calculated grand total:', grandTotal);
+    console.log('=== FINAL GRAND TOTAL:', grandTotal, '===');
 
     // 7. Create or find client in Jobber
     console.log('=== Creating/Finding Jobber Client ===');
@@ -359,7 +377,7 @@ Deno.serve(async (req) => {
       quote.notes_customer || 'Complete window tinting installation',
     ].filter(Boolean).join('\n');
 
-    console.log('Creating quote with variables:', JSON.stringify({
+    const jobberVariables = {
       clientId: clientId,
       propertyId: propertyId,
       title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
@@ -370,7 +388,11 @@ Deno.serve(async (req) => {
         quantity: 1,
         saveToProductsAndServices: false
       }]
-    }, null, 2));
+    };
+    
+    console.log('=== SENDING TO JOBBER ===');
+    console.log('Grand Total being sent:', grandTotal);
+    console.log('Full variables:', JSON.stringify(jobberVariables, null, 2));
 
     const quoteResult = await jobberGraphQL(JOBBER_API, headers, quoteMutation, {
       clientId: clientId,
@@ -443,6 +465,9 @@ async function jobberGraphQL(endpoint: string, headers: any, query: string, vari
 
 // Helper: Calculate quote total (replicates client-side logic)
 function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any, caulk: any): number {
+  console.log('>>> Inside calculateQuoteTotal');
+  console.log('>>> Sections to process:', quote.sections?.length || 0);
+  
   const resolveFilm = (windowFilmId: string | null, sectionFilmId: string | null, globalFilmId: string | null) => {
     if (windowFilmId && filmsMap.has(windowFilmId)) return filmsMap.get(windowFilmId);
     if (sectionFilmId && filmsMap.has(sectionFilmId)) return filmsMap.get(sectionFilmId);
@@ -454,23 +479,35 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
   let totalLinearFeetSecurity = 0;
 
   for (const section of (quote.sections || [])) {
+    console.log('--- Processing Section:', section.id, 'Windows:', section.windows?.length || 0);
+    
     for (const window of (section.windows || [])) {
+      console.log('  >> Window:', window.id, window.label);
       // Use quote dimensions if present, otherwise use exact
       const useQuoteDims = window.quote_width_in != null && window.quote_height_in != null;
       const width = useQuoteDims ? window.quote_width_in : window.width_in;
       const height = useQuoteDims ? window.quote_height_in : window.height_in;
+
+      console.log('     Dimensions - width:', width, 'height:', height, 'quantity:', window.quantity);
 
       // Calculate area
       const areaSqft = (width * height) / 144;
       const lineAreaSqft = areaSqft * window.quantity;
       const effectiveAreaSqft = lineAreaSqft * (1 + (window.waste_factor_percent || 0) / 100);
       
+      console.log('     Area - sqft:', areaSqft, 'line:', lineAreaSqft, 'effective:', effectiveAreaSqft);
+      
       // Get film and pricing
       const resolvedFilm = resolveFilm(window.window_film_id, section.section_film_id, quote.global_film_id);
       const sellPerSqft = window.override_sell_per_sqft ?? resolvedFilm?.sell_per_sqft ?? 0;
       const lineTotal = effectiveAreaSqft * sellPerSqft;
       
+      console.log('     Film IDs - window:', window.window_film_id, 'section:', section.section_film_id, 'global:', quote.global_film_id);
+      console.log('     Film resolved:', !!resolvedFilm, 'Film name:', resolvedFilm?.name);
+      console.log('     Sell per sqft:', sellPerSqft, 'Line total:', lineTotal);
+      
       windowsSubtotal += lineTotal;
+      console.log('     Running windowsSubtotal:', windowsSubtotal);
 
       // Calculate linear feet for security film (always use exact dimensions for materials)
       const isSecurity = resolvedFilm?.security_film ?? false;
@@ -481,25 +518,43 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
     }
   }
 
+  console.log('=== CALCULATION BREAKDOWN ===');
+  console.log('Windows Subtotal:', windowsSubtotal);
+  console.log('Total Linear Feet Security:', totalLinearFeetSecurity);
+  
   // Calculate materials based on security film
   // If there's security film, use gasket pricing; otherwise no materials
   let materialsTotal = 0;
   if (totalLinearFeetSecurity > 0 && gasket) {
     materialsTotal = totalLinearFeetSecurity * gasket.sell_per_linear_ft;
   }
+  console.log('Materials Total:', materialsTotal);
 
   // Calculate discounts and totals
   const subtotal = windowsSubtotal + materialsTotal;
+  console.log('Subtotal (windows + materials):', subtotal);
+  
   const discountFlatAmount = Math.min(quote.discount_flat || 0, subtotal);
+  console.log('Discount Flat Amount:', discountFlatAmount);
+  
   const subtotalAfterFlat = subtotal - discountFlatAmount;
+  console.log('Subtotal After Flat Discount:', subtotalAfterFlat);
+  
   const discountPercentAmount = subtotalAfterFlat * ((quote.discount_percent || 0) / 100);
+  console.log('Discount Percent Amount:', discountPercentAmount, `(${quote.discount_percent || 0}%)`);
+  
   const subtotalAfterDiscounts = subtotalAfterFlat - discountPercentAmount;
+  console.log('Subtotal After Discounts:', subtotalAfterDiscounts);
   
   const travelFee = quote.travel_fee || 0;
+  console.log('Travel Fee:', travelFee, 'Taxable:', quote.travel_taxable);
+  
   const taxableBase = quote.travel_taxable ? subtotalAfterDiscounts + travelFee : subtotalAfterDiscounts;
   const taxAmount = taxableBase * ((quote.tax_percent || 0) / 100);
+  console.log('Tax Amount:', taxAmount, `(${quote.tax_percent || 0}% on ${taxableBase})`);
   
   const grandTotal = subtotalAfterDiscounts + travelFee + taxAmount;
+  console.log('=== GRAND TOTAL:', grandTotal, '===');
 
   return Math.round(grandTotal * 100) / 100; // Round to 2 decimal places
 }
