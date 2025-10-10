@@ -220,7 +220,7 @@ Deno.serve(async (req) => {
       if (quote.customer_email) {
         clientInput.emails = [{ 
           address: quote.customer_email, 
-          description: "PRIMARY"
+          description: "MAIN"
         }];
       }
       if (quote.customer_phone) {
