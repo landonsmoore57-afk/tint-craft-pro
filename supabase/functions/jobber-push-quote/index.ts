@@ -270,19 +270,7 @@ Deno.serve(async (req) => {
 
       const propertyInput: any = {};
       
-      // Add address if available - give it SOME data
-      if (quote.site_address) {
-        propertyInput.address = {
-          street1: quote.site_address,
-        };
-      } else {
-        // If no address, provide a minimal one
-        propertyInput.address = {
-          street1: "Service Location"
-        };
-      }
-
-      console.log('Creating property with input:', JSON.stringify(propertyInput, null, 2));
+      console.log('Creating property with empty input');
 
       const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { 
         clientId: clientId,
@@ -300,19 +288,33 @@ Deno.serve(async (req) => {
 
       // Get the property ID - it's an ARRAY so access first element
       const createdProperties = propertyResult.propertyCreate?.properties;
-      const createdProperty = createdProperties?.[0];
       
-      if (!createdProperty?.id) {
-        console.error('Property creation succeeded but no property ID returned');
-        console.log('Properties returned:', createdProperties);
-        return json({ 
-          ok: false, 
-          error: 'Property creation completed but no property ID was returned. Please try again.'
-        }, 500);
+      if (!createdProperties || createdProperties.length === 0) {
+        // Property might have been created but not returned
+        // Wait longer and query again
+        console.log('No properties in mutation response, waiting 3 seconds and querying...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Query for properties again
+        const propertiesResult2 = await jobberGraphQL(JOBBER_API, headers, propertiesQuery, { 
+          clientId 
+        });
+        
+        const properties2 = propertiesResult2?.client?.clientProperties?.nodes || [];
+        
+        if (properties2.length > 0) {
+          propertyId = properties2[0].id;
+          console.log('Found property after re-query:', propertyId);
+        } else {
+          return json({ 
+            ok: false, 
+            error: 'Property creation initiated but property not found. Please create a property manually in Jobber for this client first.'
+          }, 500);
+        }
+      } else {
+        propertyId = createdProperties[0].id;
+        console.log('Property created with ID:', propertyId);
       }
-
-      propertyId = createdProperty.id;
-      console.log('Property created with ID:', propertyId);
     } else {
       // Use existing property
       propertyId = properties[0].id;
