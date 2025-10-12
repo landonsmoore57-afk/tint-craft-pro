@@ -202,13 +202,13 @@ Deno.serve(async (req) => {
       if (quote.customer_email) {
         clientInput.emails = [{ 
           address: quote.customer_email, 
-          description: "PRIMARY"
+          description: "MAIN"
         }];
       }
       if (quote.customer_phone) {
         clientInput.phones = [{ 
           number: quote.customer_phone, 
-          description: "MOBILE"
+          description: "MAIN"
         }];
       }
 
