@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
       const propertyMutation = `
         mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
           propertyCreate(clientId: $clientId, input: $input) {
-            property {
+            properties {
               id
             }
             userErrors {
@@ -289,8 +289,9 @@ Deno.serve(async (req) => {
         return json({ ok: false, error: `Failed to create property: ${errors}` }, 400);
       }
 
-      // Get the property ID directly from the mutation response
-      const createdProperty = propertyResult.propertyCreate?.property;
+      // Get the property ID directly from the mutation response (properties is an array)
+      const createdProperties = propertyResult.propertyCreate?.properties;
+      const createdProperty = createdProperties?.[0];
       
       if (!createdProperty?.id) {
         console.error('Property creation succeeded but no property ID returned');
