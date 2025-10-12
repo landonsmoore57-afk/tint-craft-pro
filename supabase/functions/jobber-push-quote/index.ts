@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
       if (quote.customer_email) {
         clientInput.emails = [{ 
           address: quote.customer_email, 
-          description: "PRIMARY"
+          description: "MAIN"
         }];
       }
       if (quote.customer_phone) {
@@ -270,17 +270,8 @@ Deno.serve(async (req) => {
 
       const propertyInput: any = {};
       
-      // Add address if available - give it SOME data
-      if (quote.site_address) {
-        propertyInput.address = {
-          street1: quote.site_address,
-        };
-      } else {
-        // If no address, provide a minimal one
-        propertyInput.address = {
-          street1: "Service Location"
-        };
-      }
+      // PropertyCreateInput doesn't support address field
+      // Just use empty object - property will be created without address
 
       console.log('Creating property with input:', JSON.stringify(propertyInput, null, 2));
 
