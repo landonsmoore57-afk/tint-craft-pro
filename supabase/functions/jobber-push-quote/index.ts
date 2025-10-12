@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
       if (quote.customer_email) {
         clientInput.emails = [{ 
           address: quote.customer_email, 
-          description: "MAIN"
+          description: "PRIMARY"
         }];
       }
       if (quote.customer_phone) {
@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
     // 8. Get or create property
     console.log('=== Getting/Creating Property ===');
     
-    // Query for existing properties - USING CORRECT FIELD NAME
+    // Query for existing properties - FIXED FIELD NAME
     const propertiesQuery = `
       query GetClientProperties($clientId: EncodedId!) {
         client(id: $clientId) {
@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
       const propertyMutation = `
         mutation CreateProperty($clientId: EncodedId!, $input: PropertyCreateInput!) {
           propertyCreate(clientId: $clientId, input: $input) {
-            properties {
+            property {
               id
             }
             userErrors {
@@ -270,7 +270,19 @@ Deno.serve(async (req) => {
 
       const propertyInput: any = {};
       
-      console.log('Creating property with empty input (Jobber will use default property settings)');
+      // Add address if available - give it SOME data
+      if (quote.site_address) {
+        propertyInput.address = {
+          street1: quote.site_address,
+        };
+      } else {
+        // If no address, provide a minimal one
+        propertyInput.address = {
+          street1: "Service Location"
+        };
+      }
+
+      console.log('Creating property with input:', JSON.stringify(propertyInput, null, 2));
 
       const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { 
         clientId: clientId,
@@ -286,40 +298,19 @@ Deno.serve(async (req) => {
         return json({ ok: false, error: `Failed to create property: ${errors}` }, 400);
       }
 
-      // Get the property ID - it's an ARRAY so access first element
-      const createdProperties = propertyResult.propertyCreate?.properties;
+      // Get the property ID directly from the mutation response
+      const createdProperty = propertyResult.propertyCreate?.property;
       
-      if (!createdProperties || createdProperties.length === 0) {
-        // Property might have been created but not returned immediately
-        // Jobber may process property creation asynchronously
-        console.log('No properties in mutation response, waiting 6 seconds for Jobber to process...');
-        await new Promise(resolve => setTimeout(resolve, 6000));
-        
-        // Query for properties again
-        console.log('Re-querying for properties...');
-        const propertiesResult2 = await jobberGraphQL(JOBBER_API, headers, propertiesQuery, { 
-          clientId 
-        });
-        
-        console.log('Re-query result:', JSON.stringify(propertiesResult2, null, 2));
-        
-        const properties2 = propertiesResult2?.client?.clientProperties?.nodes || [];
-        
-        if (properties2.length > 0) {
-          propertyId = properties2[0].id;
-          console.log('✓ Found property after re-query:', propertyId);
-        } else {
-          console.error('Property still not found after 6 second wait');
-          console.error('This may indicate that Jobber requires manual property setup for this client');
-          return json({ 
-            ok: false, 
-            error: 'Unable to create or find property for this client. Please ensure the client has at least one property set up in Jobber, then try pushing the quote again.'
-          }, 500);
-        }
-      } else {
-        propertyId = createdProperties[0].id;
-        console.log('✓ Property created immediately with ID:', propertyId);
+      if (!createdProperty?.id) {
+        console.error('Property creation succeeded but no property ID returned');
+        return json({ 
+          ok: false, 
+          error: 'Property creation completed but no property ID was returned. Please try again.'
+        }, 500);
       }
+
+      propertyId = createdProperty.id;
+      console.log('Property created with ID:', propertyId);
     } else {
       // Use existing property
       propertyId = properties[0].id;
@@ -490,8 +481,12 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
     }
   }
 
-  // Calculate materials (using no materials for simplicity - can be enhanced later)
-  const materialsTotal = 0; // Or calculate based on gasket/caulk if needed
+  // Calculate materials based on security film
+  // If there's security film, use gasket pricing; otherwise no materials
+  let materialsTotal = 0;
+  if (totalLinearFeetSecurity > 0 && gasket) {
+    materialsTotal = totalLinearFeetSecurity * gasket.sell_per_linear_ft;
+  }
 
   // Calculate discounts and totals
   const subtotal = windowsSubtotal + materialsTotal;
