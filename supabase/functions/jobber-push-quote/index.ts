@@ -68,64 +68,88 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: 'Jobber not connected. Please connect Jobber in Settings.' }, 400);
     }
 
-    // 4. Check and refresh token if needed
-    let accessToken = tokens.access_token;
-    const expiresAt = new Date(tokens.expires_at);
+    // 4. Check and refresh token if needed (with 5-minute buffer)
+    console.log('=== Checking Jobber Authentication ===');
     
-    if (expiresAt <= new Date()) {
-      console.log('Token expired, refreshing...');
+    let accessToken = tokens.access_token;
+    const refreshToken = tokens.refresh_token;
+    const expiresAt = tokens.expires_at;
+    
+    // Check if token is expired or will expire in the next 5 minutes
+    const now = new Date();
+    const expiryDate = new Date(expiresAt);
+    const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+    
+    const needsRefresh = expiryDate <= fiveMinutesFromNow;
+    
+    console.log('Token status:', {
+      expiresAt: expiresAt,
+      now: now.toISOString(),
+      expiresIn: Math.round((expiryDate.getTime() - now.getTime()) / 1000 / 60) + ' minutes',
+      needsRefresh: needsRefresh
+    });
+    
+    if (needsRefresh) {
+      console.log('Token expires soon or is expired, refreshing...');
       
-      const refreshResponse = await fetch('https://api.getjobber.com/api/oauth/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: tokens.refresh_token,
-          client_id: Deno.env.get('JOBBER_CLIENT_ID')!,
-          client_secret: Deno.env.get('JOBBER_CLIENT_SECRET')!,
-        }),
-      });
-
-      if (!refreshResponse.ok) {
-        const errorText = await refreshResponse.text();
-        console.error('Token refresh failed:', refreshResponse.status, errorText);
-        return json({ ok: false, error: 'Jobber token expired. Please reconnect Jobber in Settings.' }, 400);
+      try {
+        const tokenResponse = await fetch('https://api.getjobber.com/api/oauth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken,
+            client_id: Deno.env.get('JOBBER_CLIENT_ID')!,
+            client_secret: Deno.env.get('JOBBER_CLIENT_SECRET')!,
+          }),
+        });
+    
+        if (!tokenResponse.ok) {
+          const errorText = await tokenResponse.text();
+          console.error('Token refresh failed:', tokenResponse.status, errorText);
+          return json({ 
+            ok: false, 
+            error: 'Jobber connection expired. Please reconnect to Jobber in your settings.' 
+          }, 401);
+        }
+    
+        const refreshData = await tokenResponse.json();
+        accessToken = refreshData.access_token;
+        
+        // Calculate new expiry time (tokens typically last 2 hours)
+        let newExpiresAt: string;
+        if (refreshData.expires_in && typeof refreshData.expires_in === 'number' && refreshData.expires_in > 0) {
+          newExpiresAt = new Date(now.getTime() + refreshData.expires_in * 1000).toISOString();
+        } else {
+          console.warn('No valid expires_in in token response, using 1 hour default');
+          newExpiresAt = new Date(now.getTime() + 3600 * 1000).toISOString();
+        }
+    
+        // Update tokens in database
+        const { error: updateError } = await supabase
+          .from('integration_jobber_tokens')
+          .update({
+            access_token: refreshData.access_token,
+            refresh_token: refreshData.refresh_token || refreshToken,
+            expires_at: newExpiresAt,
+            updated_at: now.toISOString(),
+          })
+          .eq('account_id', userId);
+        
+        if (updateError) {
+          console.error('Failed to update tokens:', updateError);
+        } else {
+          console.log('Tokens refreshed successfully. New expiry:', newExpiresAt);
+        }
+      } catch (error) {
+        console.error('Token refresh error:', error);
+        return json({ 
+          ok: false, 
+          error: 'Failed to refresh Jobber connection. Please reconnect to Jobber in your settings.' 
+        }, 401);
       }
-
-      const refreshData = await refreshResponse.json();
-      console.log('Token refresh response:', JSON.stringify(refreshData, null, 2));
-      
-      accessToken = refreshData.access_token;
-      
-      // Calculate new expiration time
-      // Jobber's expires_in is in seconds, but validate it first
-      let newExpiresAt: string;
-      if (refreshData.expires_in && typeof refreshData.expires_in === 'number' && refreshData.expires_in > 0) {
-        // Use provided expiration time
-        newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000).toISOString();
-      } else {
-        // Fallback: assume 1 hour expiration
-        console.warn('No valid expires_in in refresh response, using 1 hour default');
-        newExpiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
-      }
-      
-      // Update tokens in database
-      const { error: updateError } = await supabase
-        .from('integration_jobber_tokens')
-        .update({
-          access_token: refreshData.access_token,
-          refresh_token: refreshData.refresh_token || tokens.refresh_token,
-          expires_at: newExpiresAt,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('account_id', userId);
-      
-      if (updateError) {
-        console.error('Failed to update tokens:', updateError);
-        // Don't fail the request, just log the error
-      }
-      
-      console.log('Token refreshed successfully, new expiration:', newExpiresAt);
+    } else {
+      console.log('Token is still valid, no refresh needed');
     }
 
     // 5. Set up Jobber API
