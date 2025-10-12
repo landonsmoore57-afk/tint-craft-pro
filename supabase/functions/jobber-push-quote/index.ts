@@ -270,7 +270,7 @@ Deno.serve(async (req) => {
 
       const propertyInput: any = {};
       
-      console.log('Creating property with empty input');
+      console.log('Creating property with empty input (Jobber will use default property settings)');
 
       const propertyResult = await jobberGraphQL(JOBBER_API, headers, propertyMutation, { 
         clientId: clientId,
@@ -290,30 +290,35 @@ Deno.serve(async (req) => {
       const createdProperties = propertyResult.propertyCreate?.properties;
       
       if (!createdProperties || createdProperties.length === 0) {
-        // Property might have been created but not returned
-        // Wait longer and query again
-        console.log('No properties in mutation response, waiting 3 seconds and querying...');
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        // Property might have been created but not returned immediately
+        // Jobber may process property creation asynchronously
+        console.log('No properties in mutation response, waiting 6 seconds for Jobber to process...');
+        await new Promise(resolve => setTimeout(resolve, 6000));
         
         // Query for properties again
+        console.log('Re-querying for properties...');
         const propertiesResult2 = await jobberGraphQL(JOBBER_API, headers, propertiesQuery, { 
           clientId 
         });
+        
+        console.log('Re-query result:', JSON.stringify(propertiesResult2, null, 2));
         
         const properties2 = propertiesResult2?.client?.clientProperties?.nodes || [];
         
         if (properties2.length > 0) {
           propertyId = properties2[0].id;
-          console.log('Found property after re-query:', propertyId);
+          console.log('✓ Found property after re-query:', propertyId);
         } else {
+          console.error('Property still not found after 6 second wait');
+          console.error('This may indicate that Jobber requires manual property setup for this client');
           return json({ 
             ok: false, 
-            error: 'Property creation initiated but property not found. Please create a property manually in Jobber for this client first.'
+            error: 'Unable to create or find property for this client. Please ensure the client has at least one property set up in Jobber, then try pushing the quote again.'
           }, 500);
         }
       } else {
         propertyId = createdProperties[0].id;
-        console.log('Property created with ID:', propertyId);
+        console.log('✓ Property created immediately with ID:', propertyId);
       }
     } else {
       // Use existing property
