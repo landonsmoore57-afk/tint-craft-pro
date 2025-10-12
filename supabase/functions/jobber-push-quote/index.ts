@@ -361,6 +361,9 @@ Deno.serve(async (req) => {
       quote.notes_customer || 'Complete window tinting installation',
     ].filter(Boolean).join('\n');
 
+    console.log('=== LINE ITEMS BEING SENT TO JOBBER ===');
+    console.log('Line item unitPrice:', grandTotal);
+    
     console.log('Creating quote with variables:', JSON.stringify({
       clientId: clientId,
       propertyId: propertyId,
@@ -368,7 +371,7 @@ Deno.serve(async (req) => {
       lineItems: [{
         name: 'Window Tinting Service',
         description: description,
-        unitCost: grandTotal,
+        unitPrice: grandTotal,
         quantity: 1,
         saveToProductsAndServices: false
       }]
@@ -382,7 +385,7 @@ Deno.serve(async (req) => {
         {
           name: 'Window Tinting Service',
           description: description,
-          unitCost: grandTotal,
+          unitPrice: grandTotal,
           quantity: 1,
           saveToProductsAndServices: false
         }
