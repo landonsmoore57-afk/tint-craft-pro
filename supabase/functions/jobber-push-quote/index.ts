@@ -48,6 +48,16 @@ Deno.serve(async (req) => {
 
     console.log('Quote loaded:', quote.quote_number);
 
+    // 1b. Load rooms for room name resolution
+    const { data: rooms } = await supabase.from('rooms').select('*');
+
+    if (quoteError || !quote) {
+      console.error('Quote not found:', quoteError);
+      return json({ ok: false, error: 'Quote not found' }, 404);
+    }
+
+    console.log('Quote loaded:', quote.quote_number);
+
     // 2. Load films and materials for calculation
     const { data: films } = await supabase.from('films').select('*');
     const { data: materials } = await supabase.from('materials').select('*').eq('active', true);
@@ -160,9 +170,9 @@ Deno.serve(async (req) => {
       'X-JOBBER-GRAPHQL-VERSION': '2023-11-15',
     };
 
-    // 6. Calculate quote total
-    const grandTotal = calculateQuoteTotal(quote, filmsMap, gasket, caulk);
-    console.log('Calculated grand total:', grandTotal);
+    // 6. Calculate room-based quote totals
+    const totals = calculateQuoteTotal(quote, filmsMap, gasket, rooms || []);
+    console.log('Calculated grand total:', totals.grandTotal);
 
     // 7. Create or find client in Jobber
     console.log('=== Creating/Finding Jobber Client ===');
@@ -371,49 +381,59 @@ Deno.serve(async (req) => {
       }
     `;
 
-    // Build line item description
-    const windowCount = quote.sections?.reduce((sum: number, section: any) => {
-      return sum + (section.windows?.reduce((wSum: number, window: any) => {
-        return wSum + (window.quantity || 1);
-      }, 0) || 0);
-    }, 0) || 0;
+    // Build room-based line items
+    const lineItems: any[] = [];
 
-    const description = [
-      `Quote #${quote.quote_number}`,
-      quote.site_address ? `Location: ${quote.site_address}` : null,
-      windowCount > 0 ? `Total Windows: ${windowCount}` : null,
-      quote.notes_customer || 'Complete window tinting installation',
-    ].filter(Boolean).join('\n');
+    // Add room line items
+    totals.roomTotals.forEach((room: any) => {
+      lineItems.push({
+        name: room.roomLabel,
+        description: `${room.windowCount} window${room.windowCount !== 1 ? 's' : ''} - Window tinting`,
+        unitPrice: Math.round(room.subtotal * 100) / 100,
+        quantity: 1,
+        saveToProductsAndServices: false
+      });
+    });
+
+    // Add materials if applicable
+    if (totals.materialsTotal > 0) {
+      lineItems.push({
+        name: 'Materials',
+        description: 'Security film gasket and caulk',
+        unitPrice: Math.round(totals.materialsTotal * 100) / 100,
+        quantity: 1,
+        saveToProductsAndServices: false
+      });
+    }
+
+    // Add travel fee if applicable
+    if (totals.travelFee > 0) {
+      lineItems.push({
+        name: 'Travel Fee',
+        description: 'Travel to job site',
+        unitPrice: Math.round(totals.travelFee * 100) / 100,
+        quantity: 1,
+        saveToProductsAndServices: false
+      });
+    }
 
     console.log('=== LINE ITEMS BEING SENT TO JOBBER ===');
-    console.log('Line item unitPrice:', grandTotal);
+    console.log(JSON.stringify(lineItems, null, 2));
+    console.log(`Total line items: ${lineItems.length}`);
+    console.log(`Expected total: $${totals.grandTotal.toFixed(2)}`);
     
     console.log('Creating quote with variables:', JSON.stringify({
       clientId: clientId,
       propertyId: propertyId,
       title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
-      lineItems: [{
-        name: 'Window Tinting Service',
-        description: description,
-        unitPrice: grandTotal,
-        quantity: 1,
-        saveToProductsAndServices: false
-      }]
+      lineItems: lineItems
     }, null, 2));
 
     const quoteResult = await jobberGraphQL(JOBBER_API, headers, quoteMutation, {
       clientId: clientId,
       propertyId: propertyId,
       title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
-      lineItems: [
-        {
-          name: 'Window Tinting Service',
-          description: description,
-          unitPrice: grandTotal,
-          quantity: 1,
-          saveToProductsAndServices: false
-        }
-      ]
+      lineItems: lineItems
     });
 
     if (quoteResult.quoteCreate?.userErrors?.length) {
@@ -436,8 +456,8 @@ Deno.serve(async (req) => {
       jobberQuote,
       clientId,
       propertyId,
-      total: formatCurrency(grandTotal),
-      message: `Quote #${jobberQuote.quoteNumber} created in Jobber with total ${formatCurrency(grandTotal)}`
+      total: formatCurrency(totals.grandTotal),
+      message: `Quote #${jobberQuote.quoteNumber} created in Jobber with total ${formatCurrency(totals.grandTotal)}`
     });
 
   } catch (error: any) {
@@ -470,8 +490,10 @@ async function jobberGraphQL(endpoint: string, headers: any, query: string, vari
   return result.data;
 }
 
-// Helper: Calculate quote total (replicates client-side logic)
-function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any, caulk: any): number {
+// Helper: Calculate room-based quote totals
+function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any, rooms: any[]) {
+  console.log('=== STARTING ROOM-BASED CALCULATIONS ===');
+  
   const resolveFilm = (windowFilmId: string | null, sectionFilmId: string | null, globalFilmId: string | null) => {
     if (windowFilmId && filmsMap.has(windowFilmId)) return filmsMap.get(windowFilmId);
     if (sectionFilmId && filmsMap.has(sectionFilmId)) return filmsMap.get(sectionFilmId);
@@ -479,58 +501,128 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
     return null;
   };
 
-  let windowsSubtotal = 0;
+  // Track totals per room
+  const roomTotals = new Map<string, {
+    roomLabel: string;
+    windowCount: number;
+    subtotal: number;
+  }>();
+  
   let totalLinearFeetSecurity = 0;
 
+  // Process each section and its windows
   for (const section of (quote.sections || [])) {
+    // Resolve room name (same logic as quoteCalculations.ts)
+    let roomLabel = 'Unassigned';
+    
+    if (section.custom_room_name) {
+      roomLabel = section.custom_room_name;
+    } else if (section.room_id) {
+      const room = rooms.find((r: any) => r.id === section.room_id);
+      roomLabel = room?.name || section.name || 'Unassigned';
+    } else if (section.name) {
+      roomLabel = section.name;
+    }
+
+    console.log(`Processing section in room: ${roomLabel}`);
+
+    // Calculate totals for windows in this section
     for (const window of (section.windows || [])) {
       // Use quote dimensions if present, otherwise use exact
       const useQuoteDims = window.quote_width_in != null && window.quote_height_in != null;
       const width = useQuoteDims ? window.quote_width_in : window.width_in;
       const height = useQuoteDims ? window.quote_height_in : window.height_in;
+      const quantity = window.quantity || 1;
+      const wasteFactorPercent = window.waste_factor_percent || 0;
 
       // Calculate area
       const areaSqft = (width * height) / 144;
-      const lineAreaSqft = areaSqft * window.quantity;
-      const effectiveAreaSqft = lineAreaSqft * (1 + (window.waste_factor_percent || 0) / 100);
-      
-      // Get film and pricing
+      const lineAreaSqft = areaSqft * quantity;
+      const effectiveAreaSqft = lineAreaSqft * (1 + wasteFactorPercent / 100);
+
+      // Resolve film (window → section → global precedence)
       const resolvedFilm = resolveFilm(window.window_film_id, section.section_film_id, quote.global_film_id);
       const sellPerSqft = window.override_sell_per_sqft ?? resolvedFilm?.sell_per_sqft ?? 0;
-      const lineTotal = effectiveAreaSqft * sellPerSqft;
-      
-      windowsSubtotal += lineTotal;
 
-      // Calculate linear feet for security film (always use exact dimensions for materials)
+      // Calculate window line total
+      const lineTotal = effectiveAreaSqft * sellPerSqft;
+
+      // Add to room total
+      const roomData = roomTotals.get(roomLabel) || {
+        roomLabel,
+        windowCount: 0,
+        subtotal: 0
+      };
+      
+      roomData.windowCount += quantity;
+      roomData.subtotal += lineTotal;
+      roomTotals.set(roomLabel, roomData);
+
+      // Track security film for materials
       const isSecurity = resolvedFilm?.security_film ?? false;
       if (isSecurity) {
-        const linearFeet = window.quantity * (2 * (window.width_in + window.height_in) / 12);
+        // Always use exact dimensions for materials (perimeter-based)
+        const linearFeet = quantity * (2 * (window.width_in + window.height_in) / 12);
         totalLinearFeetSecurity += linearFeet;
       }
+
+      console.log(`  Window: ${width}x${height}, qty: ${quantity}, price: $${lineTotal.toFixed(2)}`);
     }
   }
 
-  // Calculate materials based on security film
-  // If there's security film, use gasket pricing; otherwise no materials
+  console.log('=== ROOM TOTALS ===');
+  roomTotals.forEach((room, label) => {
+    console.log(`${label}: ${room.windowCount} windows, $${room.subtotal.toFixed(2)}`);
+  });
+
+  // Calculate materials
   let materialsTotal = 0;
   if (totalLinearFeetSecurity > 0 && gasket) {
     materialsTotal = totalLinearFeetSecurity * gasket.sell_per_linear_ft;
+    console.log(`Materials: ${totalLinearFeetSecurity.toFixed(2)} LF × $${gasket.sell_per_linear_ft} = $${materialsTotal.toFixed(2)}`);
   }
 
-  // Calculate discounts and totals
+  // Calculate subtotals
+  const windowsSubtotal = Array.from(roomTotals.values())
+    .reduce((sum, room) => sum + room.subtotal, 0);
+  
   const subtotal = windowsSubtotal + materialsTotal;
+  
+  // Apply discounts
   const discountFlatAmount = Math.min(quote.discount_flat || 0, subtotal);
   const subtotalAfterFlat = subtotal - discountFlatAmount;
   const discountPercentAmount = subtotalAfterFlat * ((quote.discount_percent || 0) / 100);
   const subtotalAfterDiscounts = subtotalAfterFlat - discountPercentAmount;
   
+  // Travel fee
   const travelFee = quote.travel_fee || 0;
+  
+  // Calculate tax
   const taxableBase = quote.travel_taxable ? subtotalAfterDiscounts + travelFee : subtotalAfterDiscounts;
   const taxAmount = taxableBase * ((quote.tax_percent || 0) / 100);
   
-  const grandTotal = subtotalAfterDiscounts + travelFee + taxAmount;
+  // Grand total
+  const grandTotal = Math.round((subtotalAfterDiscounts + travelFee + taxAmount) * 100) / 100;
 
-  return Math.round(grandTotal * 100) / 100; // Round to 2 decimal places
+  console.log('=== FINAL TOTALS ===');
+  console.log(`Windows Subtotal: $${windowsSubtotal.toFixed(2)}`);
+  console.log(`Materials: $${materialsTotal.toFixed(2)}`);
+  console.log(`Subtotal: $${subtotal.toFixed(2)}`);
+  console.log(`Discount (Flat): -$${discountFlatAmount.toFixed(2)}`);
+  console.log(`Discount (Percent): -$${discountPercentAmount.toFixed(2)}`);
+  console.log(`Subtotal After Discounts: $${subtotalAfterDiscounts.toFixed(2)}`);
+  console.log(`Travel Fee: $${travelFee.toFixed(2)}`);
+  console.log(`Tax (${quote.tax_percent || 0}%): $${taxAmount.toFixed(2)}`);
+  console.log(`GRAND TOTAL: $${grandTotal.toFixed(2)}`);
+
+  return {
+    roomTotals: Array.from(roomTotals.values()),
+    materialsTotal,
+    travelFee,
+    subtotal,
+    taxAmount,
+    grandTotal
+  };
 }
 
 // Helper: Format currency
