@@ -268,18 +268,19 @@ Deno.serve(async (req) => {
         }
       `;
 
-      const propertyInput: any = {};
+      const propertyInput: any = {
+        properties: [
+          {
+            address: {
+              street1: quote.site_address || "Service Location"
+            }
+          }
+        ]
+      };
       
-      // Add address if available - give it SOME data
+      // Optional: Add a name for the property
       if (quote.site_address) {
-        propertyInput.address = {
-          street1: quote.site_address,
-        };
-      } else {
-        // If no address, provide a minimal one
-        propertyInput.address = {
-          street1: "Service Location"
-        };
+        propertyInput.properties[0].name = quote.site_address.split(',')[0];
       }
 
       console.log('Creating property with input:', JSON.stringify(propertyInput, null, 2));
@@ -299,17 +300,18 @@ Deno.serve(async (req) => {
       }
 
       // Get the property ID from the properties array
-      const properties = propertyResult.propertyCreate?.properties || [];
+      const createdProperties = propertyResult.propertyCreate?.properties;
+      const createdProperty = createdProperties?.[0];
       
-      if (properties.length === 0) {
-        console.error('Property creation succeeded but no properties returned');
+      if (!createdProperty?.id) {
+        console.error('Property creation succeeded but no property ID returned');
         return json({ 
           ok: false, 
-          error: 'Property creation completed but no property ID was returned. Please try again.'
+          error: 'Property creation completed but no property ID was returned.'
         }, 500);
       }
 
-      propertyId = properties[0].id;
+      propertyId = createdProperty.id;
       console.log('Property created with ID:', propertyId);
     } else {
       // Use existing property
