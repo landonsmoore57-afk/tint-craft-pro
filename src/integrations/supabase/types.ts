@@ -602,6 +602,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      quote_exists: {
+        Args: { _quote_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "tinter"
