@@ -210,6 +210,9 @@ export default function QuoteBuilder() {
       setNotesInternal(quote.notes_internal || "");
 
       // Build sections with windows
+      console.log('Total windows from DB:', windowsData.length);
+      console.log('All windows:', windowsData.map(w => ({ id: w.id, label: w.label, section_id: w.section_id, film_removal_fee: w.film_removal_fee_per_sqft })));
+      
       const loadedSections: SectionData[] = sectionsData.map(section => ({
         id: section.id,
         name: section.name,
@@ -219,8 +222,9 @@ export default function QuoteBuilder() {
         windows: windowsData
           .filter(w => w.section_id === section.id)
           .map(w => {
-            console.log('Loading window from DB:', {
-              label: w.label,
+            console.log(`Loading window "${w.label}" from section "${section.name}":`, {
+              window_id: w.id,
+              section_id: w.section_id,
               film_removal_fee_per_sqft: w.film_removal_fee_per_sqft
             });
             return {
