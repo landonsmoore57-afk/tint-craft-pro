@@ -360,7 +360,8 @@ export default function Settings() {
               )}
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              This film will be automatically applied as the Global Film for all new quotes
+              This film will be automatically applied as the <strong>Global Film</strong> for all <strong>new quotes</strong>. 
+              It will NOT affect existing quotes.
             </p>
           </div>
 

@@ -89,6 +89,8 @@ export default function QuoteBuilder() {
 
   const loadDefaultFilm = async () => {
     try {
+      console.log('Loading default film for new quote...');
+      
       // Get company settings
       const { data: settings, error: settingsError } = await supabase
         .from("company_settings")
@@ -96,23 +98,54 @@ export default function QuoteBuilder() {
         .limit(1)
         .maybeSingle();
 
-      if (settingsError && settingsError.code !== "PGRST116") throw settingsError;
+      console.log('Company settings:', settings);
+
+      if (settingsError && settingsError.code !== "PGRST116") {
+        console.error('Error fetching company settings:', settingsError);
+        throw settingsError;
+      }
 
       // If there's a default film ID, fetch the film details
       if (settings?.default_film_id) {
+        console.log('Found default_film_id:', settings.default_film_id);
+        
         const { data: film, error: filmError } = await supabase
           .from("films")
           .select("id, brand, series, name, vlt, active")
           .eq("id", settings.default_film_id)
-          .single();
+          .maybeSingle();
 
-        if (filmError) throw filmError;
+        console.log('Film data:', film);
+        console.log('Film error:', filmError);
 
-        if (film && film.active) {
-          setGlobalFilmId(film.id);
-          setDefaultFilmName(`${film.brand} ${film.series} ${film.name}${film.vlt ? ` ${film.vlt}` : ''}`);
-          setShowDefaultFilmBanner(true);
+        if (filmError) {
+          console.error('Error fetching default film:', filmError);
+          throw filmError;
         }
+
+        if (film) {
+          if (film.active) {
+            console.log('Applying active default film:', film);
+            setGlobalFilmId(film.id);
+            setDefaultFilmName(`${film.brand} ${film.series} ${film.name}${film.vlt ? ` ${film.vlt}%` : ''}`);
+            setShowDefaultFilmBanner(true);
+            toast({
+              title: "Default Film Applied",
+              description: `${film.brand} ${film.series} ${film.name} has been set as the default film for this quote.`,
+            });
+          } else {
+            console.warn('Default film is inactive:', film);
+            toast({
+              title: "Default Film Inactive",
+              description: "The default film is inactive. Please select an active film.",
+              variant: "destructive",
+            });
+          }
+        } else {
+          console.warn('No film found with ID:', settings.default_film_id);
+        }
+      } else {
+        console.log('No default film configured in settings');
       }
     } catch (error: any) {
       console.error('Error loading default film:', error);
