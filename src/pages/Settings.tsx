@@ -199,6 +199,9 @@ export default function Settings() {
   };
 
   const saveSettings = async () => {
+    console.log('=== SAVING SETTINGS ===');
+    console.log('defaultFilmId state:', defaultFilmId);
+    
     if (!companyName.trim()) {
       toast({
         title: "Validation error",
@@ -221,20 +224,27 @@ export default function Settings() {
         default_film_id: defaultFilmId,
       };
 
+      console.log('Settings data to save:', settingsData);
+
       if (settingsId) {
-        const { error } = await supabase
+        console.log('Updating existing settings with ID:', settingsId);
+        const { data, error } = await supabase
           .from("company_settings")
           .update(settingsData)
-          .eq("id", settingsId);
+          .eq("id", settingsId)
+          .select();
 
+        console.log('Update result:', { data, error });
         if (error) throw error;
       } else {
+        console.log('Inserting new settings');
         const { data, error } = await supabase
           .from("company_settings")
           .insert([settingsData])
           .select()
           .single();
 
+        console.log('Insert result:', { data, error });
         if (error) throw error;
         setSettingsId(data.id);
       }
@@ -244,6 +254,7 @@ export default function Settings() {
         description: "Company settings updated successfully",
       });
     } catch (error: any) {
+      console.error('Save settings error:', error);
       toast({
         title: "Save failed",
         description: error.message,
@@ -343,7 +354,10 @@ export default function Settings() {
               <div className="flex-1">
                 <FilmSelector 
                   value={defaultFilmId} 
-                  onChange={setDefaultFilmId}
+                  onChange={(filmId) => {
+                    console.log('Film selected in Settings:', filmId);
+                    setDefaultFilmId(filmId);
+                  }}
                   placeholder="Select default film..."
                 />
               </div>
