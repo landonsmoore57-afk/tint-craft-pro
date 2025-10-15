@@ -177,6 +177,9 @@ export function calculateQuote(
   // Calculate window line items
   const calculatedSections: SectionCalculation[] = quoteData.sections.map(section => {
     const calculatedWindows: WindowCalculation[] = section.windows.map(window => {
+      console.log(`Processing window in calculation "${window.label}":`, {
+        film_removal_fee_per_sqft: window.film_removal_fee_per_sqft
+      });
       // Basic validation
       if (window.width_in <= 0 || window.height_in <= 0) {
         validation_errors.push(`Window "${window.label}" has invalid exact dimensions`);
