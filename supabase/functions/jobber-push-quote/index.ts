@@ -421,14 +421,14 @@ Deno.serve(async (req) => {
     console.log('Creating quote with variables:', JSON.stringify({
       clientId: clientId,
       propertyId: propertyId,
-      title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
+      title: quote.customer_type || 'Residential',
       lineItems: lineItems
     }, null, 2));
 
     const quoteResult = await jobberGraphQL(JOBBER_API, headers, quoteMutation, {
       clientId: clientId,
       propertyId: propertyId,
-      title: `Quote #${quote.quote_number} - ${quote.customer_name}`,
+      title: quote.customer_type || 'Residential',
       lineItems: lineItems
     });
 
