@@ -211,6 +211,14 @@ export function calculateQuote(
       const base_sell_per_sqft = window.override_sell_per_sqft ?? resolved_film?.sell_per_sqft ?? 0;
       const film_removal_fee = window.film_removal_fee_per_sqft ?? 0;
       const sell_per_sqft = base_sell_per_sqft + film_removal_fee;
+      
+      if (film_removal_fee > 0) {
+        console.log(`Window "${window.label}" calculation:`, {
+          base_sell_per_sqft,
+          film_removal_fee,
+          total_sell_per_sqft: sell_per_sqft
+        });
+      }
 
       // Calculate line total
       const line_total = effective_area_sqft * sell_per_sqft;
