@@ -218,20 +218,28 @@ export default function QuoteBuilder() {
         section_film_id: section.section_film_id,
         windows: windowsData
           .filter(w => w.section_id === section.id)
-          .map(w => ({
-            id: w.id,
-            label: w.label,
-            width_in: w.width_in,
-            height_in: w.height_in,
-            quote_width_in: w.quote_width_in,
-            quote_height_in: w.quote_height_in,
-            quantity: w.quantity,
-            waste_factor_percent: w.waste_factor_percent,
-            window_film_id: w.window_film_id,
-            override_sell_per_sqft: w.override_sell_per_sqft,
-            film_removal_fee_per_sqft: w.film_removal_fee_per_sqft ?? 0,
-          })),
+          .map(w => {
+            console.log('Loading window from DB:', {
+              label: w.label,
+              film_removal_fee_per_sqft: w.film_removal_fee_per_sqft
+            });
+            return {
+              id: w.id,
+              label: w.label,
+              width_in: w.width_in,
+              height_in: w.height_in,
+              quote_width_in: w.quote_width_in,
+              quote_height_in: w.quote_height_in,
+              quantity: w.quantity,
+              waste_factor_percent: w.waste_factor_percent,
+              window_film_id: w.window_film_id,
+              override_sell_per_sqft: w.override_sell_per_sqft,
+              film_removal_fee_per_sqft: w.film_removal_fee_per_sqft ?? 0,
+            };
+          }),
       }));
+
+      console.log('Loaded sections with windows:', loadedSections[0]?.windows[0]);
 
       setSections(loadedSections);
     } catch (error: any) {
