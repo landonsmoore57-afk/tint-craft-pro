@@ -311,11 +311,6 @@ Deno.serve(async (req) => {
           }
         ]
       };
-      
-      // Optional: Add a name for the property
-      if (quote.site_address) {
-        propertyInput.properties[0].name = quote.site_address.split(',')[0];
-      }
 
       console.log('Creating property with input:', JSON.stringify(propertyInput, null, 2));
 
