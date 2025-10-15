@@ -381,9 +381,10 @@ Deno.serve(async (req) => {
 
     // Add room line items
     totals.roomTotals.forEach((room: any) => {
+      const filmRemovalText = room.hasFilmRemoval ? ' + film removal' : '';
       lineItems.push({
         name: room.roomLabel,
-        description: `${room.windowCount} window${room.windowCount !== 1 ? 's' : ''} - Window tinting`,
+        description: `${room.windowCount} window${room.windowCount !== 1 ? 's' : ''} - Window tinting${filmRemovalText}`,
         unitPrice: Math.round(room.subtotal * 100) / 100,
         quantity: 1,
         saveToProductsAndServices: false
@@ -501,6 +502,7 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
     roomLabel: string;
     windowCount: number;
     subtotal: number;
+    hasFilmRemoval: boolean;
   }>();
   
   let totalLinearFeetSecurity = 0;
@@ -537,7 +539,9 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
 
       // Resolve film (window → section → global precedence)
       const resolvedFilm = resolveFilm(window.window_film_id, section.section_film_id, quote.global_film_id);
-      const sellPerSqft = window.override_sell_per_sqft ?? resolvedFilm?.sell_per_sqft ?? 0;
+      const baseSellPerSqft = window.override_sell_per_sqft ?? resolvedFilm?.sell_per_sqft ?? 0;
+      const filmRemovalFee = window.film_removal_fee_per_sqft ?? 0;
+      const sellPerSqft = baseSellPerSqft + filmRemovalFee;
 
       // Calculate window line total
       const lineTotal = effectiveAreaSqft * sellPerSqft;
@@ -546,11 +550,15 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
       const roomData = roomTotals.get(roomLabel) || {
         roomLabel,
         windowCount: 0,
-        subtotal: 0
+        subtotal: 0,
+        hasFilmRemoval: false
       };
       
       roomData.windowCount += quantity;
       roomData.subtotal += lineTotal;
+      if (filmRemovalFee > 0) {
+        roomData.hasFilmRemoval = true;
+      }
       roomTotals.set(roomLabel, roomData);
 
       // Track security film for materials
