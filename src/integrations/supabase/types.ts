@@ -244,6 +244,7 @@ export type Database = {
           customer_email: string | null
           customer_name: string
           customer_phone: string | null
+          customer_type: string | null
           deposit_percent: number | null
           discount_flat: number | null
           discount_percent: number | null
@@ -266,6 +267,7 @@ export type Database = {
           customer_email?: string | null
           customer_name: string
           customer_phone?: string | null
+          customer_type?: string | null
           deposit_percent?: number | null
           discount_flat?: number | null
           discount_percent?: number | null
@@ -288,6 +290,7 @@ export type Database = {
           customer_email?: string | null
           customer_name?: string
           customer_phone?: string | null
+          customer_type?: string | null
           deposit_percent?: number | null
           discount_flat?: number | null
           discount_percent?: number | null
@@ -489,6 +492,7 @@ export type Database = {
       windows: {
         Row: {
           created_at: string | null
+          film_removal_fee_per_sqft: number | null
           height_in: number
           id: string
           label: string
@@ -506,6 +510,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          film_removal_fee_per_sqft?: number | null
           height_in: number
           id?: string
           label: string
@@ -523,6 +528,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          film_removal_fee_per_sqft?: number | null
           height_in?: number
           id?: string
           label?: string

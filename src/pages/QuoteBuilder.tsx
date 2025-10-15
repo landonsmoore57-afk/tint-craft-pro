@@ -38,6 +38,7 @@ export default function QuoteBuilder() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [siteAddress, setSiteAddress] = useState("");
   const [status, setStatus] = useState("draft");
+  const [customerType, setCustomerType] = useState("Residential");
   
   // Quote settings
   const [globalFilmId, setGlobalFilmId] = useState<string | null>(null);
@@ -197,6 +198,7 @@ export default function QuoteBuilder() {
       setCustomerPhone(quote.customer_phone || "");
       setSiteAddress(quote.site_address || "");
       setStatus(quote.status);
+      setCustomerType(quote.customer_type || "Residential");
       setGlobalFilmId(quote.global_film_id);
       setTaxPercent(quote.tax_percent.toString());
       setDiscountFlat(quote.discount_flat.toString());
@@ -227,6 +229,7 @@ export default function QuoteBuilder() {
             waste_factor_percent: w.waste_factor_percent,
             window_film_id: w.window_film_id,
             override_sell_per_sqft: w.override_sell_per_sqft,
+            film_removal_fee_per_sqft: w.film_removal_fee_per_sqft ?? 0,
           })),
       }));
 
@@ -271,6 +274,7 @@ export default function QuoteBuilder() {
         customer_phone: customerPhone || null,
         site_address: siteAddress || null,
         status: status,
+        customer_type: customerType,
         global_film_id: globalFilmId,
         discount_flat: parseFloat(discountFlat) || 0,
         discount_percent: parseFloat(discountPercent) || 0,
@@ -409,6 +413,7 @@ export default function QuoteBuilder() {
               waste_factor_percent: 0,
               window_film_id: null,
               override_sell_per_sqft: null,
+              film_removal_fee_per_sqft: 0,
             },
           ],
         };
@@ -673,6 +678,18 @@ export default function QuoteBuilder() {
                     onChange={(e) => setCustomerPhone(e.target.value)}
                     placeholder="(555) 123-4567"
                   />
+                </div>
+                <div>
+                  <Label>Customer Type</Label>
+                  <Select value={customerType} onValueChange={setCustomerType}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Residential">Residential</SelectItem>
+                      <SelectItem value="Commercial">Commercial</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label>Status</Label>

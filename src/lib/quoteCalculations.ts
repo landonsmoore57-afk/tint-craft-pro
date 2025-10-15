@@ -30,6 +30,7 @@ export interface WindowData {
   waste_factor_percent: number;
   window_film_id: string | null;
   override_sell_per_sqft: number | null;
+  film_removal_fee_per_sqft?: number;
 }
 
 export interface SectionData {
@@ -206,8 +207,10 @@ export function calculateQuote(
         validation_errors.push(`Window "${window.label}" has no film selected and no override price`);
       }
 
-      // Determine sell price per sqft
-      const sell_per_sqft = window.override_sell_per_sqft ?? resolved_film?.sell_per_sqft ?? 0;
+      // Determine sell price per sqft (including film removal fee if applicable)
+      const base_sell_per_sqft = window.override_sell_per_sqft ?? resolved_film?.sell_per_sqft ?? 0;
+      const film_removal_fee = window.film_removal_fee_per_sqft ?? 0;
+      const sell_per_sqft = base_sell_per_sqft + film_removal_fee;
 
       // Calculate line total
       const line_total = effective_area_sqft * sell_per_sqft;

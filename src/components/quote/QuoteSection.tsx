@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Settings2 } from "lucide-react";
+import { Plus, Trash2, Settings2, Eraser } from "lucide-react";
 import { SectionData, SectionCalculation, FilmData, WindowData } from "@/lib/quoteCalculations";
 import { formatCurrency, formatSqft } from "@/lib/quoteCalculations";
 import { RoomSelector } from "./RoomSelector";
@@ -150,6 +150,20 @@ export function QuoteSection({
                     title="Add Quote dimensions (used for pricing)"
                   >
                     <Settings2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button 
+                    variant={(window.film_removal_fee_per_sqft ?? 0) > 0 ? "default" : "ghost"}
+                    size="icon"
+                    onClick={() => {
+                      const currentFee = window.film_removal_fee_per_sqft ?? 0;
+                      onUpdateWindow(section.id, window.id, { 
+                        film_removal_fee_per_sqft: currentFee > 0 ? 0 : 2 
+                      });
+                    }}
+                    className="h-8 w-8"
+                    title="Film Removal (+$2/sqft)"
+                  >
+                    <Eraser className="h-3.5 w-3.5" />
                   </Button>
                   <Button 
                     variant="ghost" 
