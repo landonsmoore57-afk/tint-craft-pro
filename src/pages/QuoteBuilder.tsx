@@ -311,6 +311,8 @@ export default function QuoteBuilder() {
         })),
       }));
 
+      console.log('Saving quote - first window sample:', sectionsData[0]?.windows[0]);
+
       // Direct fetch to save-quote function
       const functionsUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '') + '/functions/v1';
       const appToken = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;

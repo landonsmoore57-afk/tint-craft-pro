@@ -35,6 +35,12 @@ Deno.serve(async (req) => {
 
     const { quote, sections } = await req.json()
 
+    console.log('Save quote - received data sample:', {
+      quoteId: quote.id,
+      sectionsCount: sections?.length || 0,
+      firstWindowSample: sections?.[0]?.windows?.[0] || null
+    })
+
     // upsert quote
     const { data: savedQuote, error: qErr } = await supabase.from('quotes').upsert(quote).select().single()
     if (qErr) return new Response(JSON.stringify({ ok: false, code: 'DB_QUOTE', error: qErr.message }), { status: 500, headers })
@@ -59,21 +65,28 @@ Deno.serve(async (req) => {
 
     // upsert windows (flatten)
     const windowsInput = sectionsInput.flatMap((s: any, i: number) =>
-      (sections?.[i]?.windows ?? []).map((w: any, j: number) => ({ 
-        id: w.id,
-        section_id: savedSections[i].id,
-        label: w.label,
-        width_in: w.width_in,
-        height_in: w.height_in,
-        quote_width_in: w.quote_width_in,
-        quote_height_in: w.quote_height_in,
-        quantity: w.quantity,
-        waste_factor_percent: w.waste_factor_percent,
-        window_film_id: w.window_film_id,
-        override_sell_per_sqft: w.override_sell_per_sqft,
-        film_removal_fee_per_sqft: w.film_removal_fee_per_sqft ?? 0,
-        position: j
-      }))
+      (sections?.[i]?.windows ?? []).map((w: any, j: number) => {
+        const windowData = {
+          id: w.id,
+          section_id: savedSections[i].id,
+          label: w.label,
+          width_in: w.width_in,
+          height_in: w.height_in,
+          quote_width_in: w.quote_width_in,
+          quote_height_in: w.quote_height_in,
+          quantity: w.quantity,
+          waste_factor_percent: w.waste_factor_percent,
+          window_film_id: w.window_film_id,
+          override_sell_per_sqft: w.override_sell_per_sqft,
+          film_removal_fee_per_sqft: w.film_removal_fee_per_sqft ?? 0,
+          position: j
+        };
+        console.log(`Window ${j} data:`, { 
+          label: windowData.label, 
+          film_removal_fee_per_sqft: windowData.film_removal_fee_per_sqft 
+        });
+        return windowData;
+      })
     )
     if (windowsInput.length) {
       const { error: wErr } = await supabase.from('windows').upsert(windowsInput)
