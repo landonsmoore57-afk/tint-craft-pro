@@ -525,6 +525,8 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
 
     // Calculate totals for windows in this section
     for (const window of (section.windows || [])) {
+      console.log(`  Processing window: ${window.label}, film_removal_fee_per_sqft:`, window.film_removal_fee_per_sqft);
+      
       // Use quote dimensions if present, otherwise use exact
       const useQuoteDims = window.quote_width_in != null && window.quote_height_in != null;
       const width = useQuoteDims ? window.quote_width_in : window.width_in;
@@ -542,6 +544,8 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
       const baseSellPerSqft = window.override_sell_per_sqft ?? resolvedFilm?.sell_per_sqft ?? 0;
       const filmRemovalFee = window.film_removal_fee_per_sqft ?? 0;
       const sellPerSqft = baseSellPerSqft + filmRemovalFee;
+      
+      console.log(`    Film removal fee: $${filmRemovalFee}, Total sell per sqft: $${sellPerSqft}`);
 
       // Calculate window line total
       const lineTotal = effectiveAreaSqft * sellPerSqft;
@@ -557,6 +561,7 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
       roomData.windowCount += quantity;
       roomData.subtotal += lineTotal;
       if (filmRemovalFee > 0) {
+        console.log(`    Setting hasFilmRemoval=true for room: ${roomLabel}`);
         roomData.hasFilmRemoval = true;
       }
       roomTotals.set(roomLabel, roomData);
@@ -575,7 +580,7 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
 
   console.log('=== ROOM TOTALS ===');
   roomTotals.forEach((room, label) => {
-    console.log(`${label}: ${room.windowCount} windows, $${room.subtotal.toFixed(2)}`);
+    console.log(`${label}: ${room.windowCount} windows, $${room.subtotal.toFixed(2)}, hasFilmRemoval: ${room.hasFilmRemoval}`);
   });
 
   // Calculate materials

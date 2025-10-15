@@ -71,6 +71,7 @@ Deno.serve(async (req) => {
         waste_factor_percent: w.waste_factor_percent,
         window_film_id: w.window_film_id,
         override_sell_per_sqft: w.override_sell_per_sqft,
+        film_removal_fee_per_sqft: w.film_removal_fee_per_sqft ?? 0,
         position: j
       }))
     )
