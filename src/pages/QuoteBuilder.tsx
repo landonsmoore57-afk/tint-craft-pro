@@ -306,6 +306,7 @@ export default function QuoteBuilder() {
           waste_factor_percent: window.waste_factor_percent || 0,
           window_film_id: window.window_film_id || null,
           override_sell_per_sqft: window.override_sell_per_sqft || null,
+          film_removal_fee_per_sqft: window.film_removal_fee_per_sqft ?? 0,
           position: wIndex,
         })),
       }));
