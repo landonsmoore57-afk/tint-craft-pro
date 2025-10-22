@@ -50,6 +50,8 @@ export default function QuoteBuilder() {
   const [travelTaxable, setTravelTaxable] = useState(false);
   const [notesCustomer, setNotesCustomer] = useState("");
   const [notesInternal, setNotesInternal] = useState("");
+  const [isPriceOverridden, setIsPriceOverridden] = useState(false);
+  const [manualOverrideTotal, setManualOverrideTotal] = useState("0");
 
   // Sections and windows
   const [sections, setSections] = useState<SectionData[]>([
@@ -241,6 +243,8 @@ export default function QuoteBuilder() {
       setTravelTaxable(quote.travel_taxable);
       setNotesCustomer(quote.notes_customer || "");
       setNotesInternal(quote.notes_internal || "");
+      setIsPriceOverridden(quote.is_price_overridden || false);
+      setManualOverrideTotal(quote.manual_override_total?.toString() || "0");
 
       // Build sections with windows
       console.log('Total windows from DB:', windowsData.length);
@@ -330,6 +334,8 @@ export default function QuoteBuilder() {
         notes_internal: notesInternal || null,
         notes_customer: notesCustomer || null,
         created_by: userId,
+        is_price_overridden: isPriceOverridden,
+        manual_override_total: isPriceOverridden ? parseFloat(manualOverrideTotal) || null : null,
       };
 
       // Sections data with windows
@@ -888,6 +894,10 @@ export default function QuoteBuilder() {
             validationErrors={calculation.validation_errors}
             quoteId={id}
             onDownloadPDF={downloadPDF}
+            isPriceOverridden={isPriceOverridden}
+            manualOverrideTotal={manualOverrideTotal}
+            onTogglePriceOverride={setIsPriceOverridden}
+            onManualPriceChange={setManualOverrideTotal}
           />
           <WindowSummary rollup={calculation.window_size_rollup} />
           <RoomsSummary rollup={calculation.rooms_summary} />

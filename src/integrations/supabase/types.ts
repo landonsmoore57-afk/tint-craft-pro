@@ -250,6 +250,8 @@ export type Database = {
           discount_percent: number | null
           global_film_id: string | null
           id: string
+          is_price_overridden: boolean | null
+          manual_override_total: number | null
           notes_customer: string | null
           notes_internal: string | null
           quote_no: number
@@ -273,6 +275,8 @@ export type Database = {
           discount_percent?: number | null
           global_film_id?: string | null
           id?: string
+          is_price_overridden?: boolean | null
+          manual_override_total?: number | null
           notes_customer?: string | null
           notes_internal?: string | null
           quote_no?: number
@@ -296,6 +300,8 @@ export type Database = {
           discount_percent?: number | null
           global_film_id?: string | null
           id?: string
+          is_price_overridden?: boolean | null
+          manual_override_total?: number | null
           notes_customer?: string | null
           notes_internal?: string | null
           quote_no?: number
@@ -608,10 +614,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      quote_exists: {
-        Args: { _quote_id: string }
-        Returns: boolean
-      }
+      quote_exists: { Args: { _quote_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "tinter"

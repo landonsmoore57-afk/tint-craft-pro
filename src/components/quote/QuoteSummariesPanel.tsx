@@ -2,8 +2,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { QuoteSummary, formatCurrency } from "@/lib/quoteCalculations";
-import { AlertCircle, Download } from "lucide-react";
+import { AlertCircle, Download, DollarSign, Calculator } from "lucide-react";
 
 interface QuoteSummariesPanelProps {
   summaries: QuoteSummary[];
@@ -11,6 +15,10 @@ interface QuoteSummariesPanelProps {
   validationErrors: string[];
   quoteId?: string;
   onDownloadPDF: (summaryKey?: string) => void;
+  isPriceOverridden: boolean;
+  manualOverrideTotal: string;
+  onTogglePriceOverride: (enabled: boolean) => void;
+  onManualPriceChange: (price: string) => void;
 }
 
 export function QuoteSummariesPanel({ 
@@ -18,8 +26,15 @@ export function QuoteSummariesPanel({
   totalLinearFeet,
   validationErrors,
   quoteId,
-  onDownloadPDF
+  onDownloadPDF,
+  isPriceOverridden,
+  manualOverrideTotal,
+  onTogglePriceOverride,
+  onManualPriceChange
 }: QuoteSummariesPanelProps) {
+  const displayTotal = isPriceOverridden && manualOverrideTotal 
+    ? parseFloat(manualOverrideTotal) 
+    : summaries[0]?.grand_total || 0;
   return (
     <div className="space-y-4">
       {validationErrors.length > 0 && (
@@ -103,12 +118,56 @@ export function QuoteSummariesPanel({
                   </div>
                 </div>
                 
-                <div className="border-t border-border pt-4">
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-lg">Grand Total</span>
-                    <span className="font-bold text-xl text-quote-totals font-mono">
-                      {formatCurrency(summary.grand_total)}
-                    </span>
+                <div className="border-t border-border pt-4 space-y-4">
+                  {/* Manual Override Toggle */}
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Calculator className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="price-override" className="text-sm cursor-pointer">
+                        Manual Pricing Override
+                      </Label>
+                    </div>
+                    <Switch
+                      id="price-override"
+                      checked={isPriceOverridden}
+                      onCheckedChange={onTogglePriceOverride}
+                    />
+                  </div>
+
+                  {/* Price Display/Input */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-lg">Grand Total</span>
+                        {isPriceOverridden && (
+                          <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100">
+                            <DollarSign className="h-3 w-3 mr-1" />
+                            Manual
+                          </Badge>
+                        )}
+                      </div>
+                      {!isPriceOverridden ? (
+                        <span className="font-bold text-xl text-quote-totals font-mono">
+                          {formatCurrency(summary.grand_total)}
+                        </span>
+                      ) : (
+                        <div className="flex flex-col items-end gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">$</span>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={manualOverrideTotal}
+                              onChange={(e) => onManualPriceChange(e.target.value)}
+                              className="w-32 text-right font-bold text-xl font-mono border-amber-300 dark:border-amber-700"
+                            />
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Auto: {formatCurrency(summary.grand_total)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
