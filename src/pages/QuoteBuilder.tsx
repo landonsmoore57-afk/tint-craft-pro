@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Save, ArrowLeft, Download, X, Info, ExternalLink } from "lucide-react";
+import { Plus, Save, ArrowLeft, Download, X, Info, ExternalLink, MessageSquare, RotateCcw } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -52,6 +52,11 @@ export default function QuoteBuilder() {
   const [notesInternal, setNotesInternal] = useState("");
   const [isPriceOverridden, setIsPriceOverridden] = useState(false);
   const [manualOverrideTotal, setManualOverrideTotal] = useState("0");
+  const [introductionMessage, setIntroductionMessage] = useState(
+    "Thank you for choosing us for your window tinting needs! This quote includes professional installation of premium window film. All prices include materials, labor, and warranty. Please review the details below and let us know if you have any questions."
+  );
+  
+  const DEFAULT_INTRODUCTION = "Thank you for choosing us for your window tinting needs! This quote includes professional installation of premium window film. All prices include materials, labor, and warranty. Please review the details below and let us know if you have any questions.";
 
   // Sections and windows
   const [sections, setSections] = useState<SectionData[]>([
@@ -245,6 +250,7 @@ export default function QuoteBuilder() {
       setNotesInternal(quote.notes_internal || "");
       setIsPriceOverridden(quote.is_price_overridden || false);
       setManualOverrideTotal(quote.manual_override_total?.toString() || "0");
+      setIntroductionMessage(quote.introduction_message || DEFAULT_INTRODUCTION);
 
       // Build sections with windows
       console.log('Total windows from DB:', windowsData.length);
@@ -337,6 +343,7 @@ export default function QuoteBuilder() {
         travel_taxable: travelTaxable,
         notes_internal: notesInternal || null,
         notes_customer: notesCustomer || null,
+        introduction_message: introductionMessage || null,
         created_by: userId,
         is_price_overridden: isPriceOverridden,
         manual_override_total: isPriceOverridden ? parseFloat(manualOverrideTotal) || null : null,
@@ -777,6 +784,42 @@ export default function QuoteBuilder() {
                   onChange={(e) => setSiteAddress(e.target.value)}
                   placeholder="123 Main St, City, State ZIP"
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quote Introduction */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-primary" />
+                  <CardTitle>Quote Introduction</CardTitle>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIntroductionMessage(DEFAULT_INTRODUCTION)}
+                  className="h-auto px-2 py-1 text-xs"
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" />
+                  Reset to Default
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Textarea
+                  value={introductionMessage}
+                  onChange={(e) => setIntroductionMessage(e.target.value)}
+                  placeholder="Enter a custom introduction message for this quote..."
+                  className="min-h-[120px] resize-y"
+                  maxLength={1000}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>This message will appear in Jobber quotes and PDFs</span>
+                  <span>{introductionMessage.length} / 1000 characters</span>
+                </div>
               </div>
             </CardContent>
           </Card>

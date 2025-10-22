@@ -356,12 +356,14 @@ Deno.serve(async (req) => {
         $clientId: EncodedId!,
         $propertyId: EncodedId!,
         $title: String!,
+        $message: String,
         $lineItems: [QuoteCreateLineItemAttributes!]!
       ) {
         quoteCreate(attributes: {
           clientId: $clientId,
           propertyId: $propertyId,
           title: $title,
+          message: $message,
           lineItems: $lineItems
         }) {
           quote {
@@ -422,6 +424,7 @@ Deno.serve(async (req) => {
       clientId: clientId,
       propertyId: propertyId,
       title: quote.customer_type || 'Residential',
+      message: quote.introduction_message || null,
       lineItems: lineItems
     }, null, 2));
 
@@ -429,6 +432,7 @@ Deno.serve(async (req) => {
       clientId: clientId,
       propertyId: propertyId,
       title: quote.customer_type || 'Residential',
+      message: quote.introduction_message || null,
       lineItems: lineItems
     });
 

@@ -38,7 +38,8 @@ Deno.serve(async (req) => {
     console.log('Save quote - received data sample:', {
       quoteId: quote.id,
       sectionsCount: sections?.length || 0,
-      firstWindowSample: sections?.[0]?.windows?.[0] || null
+      firstWindowSample: sections?.[0]?.windows?.[0] || null,
+      hasIntroduction: !!quote.introduction_message
     })
 
     // upsert quote

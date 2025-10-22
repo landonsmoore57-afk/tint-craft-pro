@@ -250,6 +250,7 @@ export type Database = {
           discount_percent: number | null
           global_film_id: string | null
           id: string
+          introduction_message: string | null
           is_price_overridden: boolean | null
           manual_override_total: number | null
           notes_customer: string | null
@@ -275,6 +276,7 @@ export type Database = {
           discount_percent?: number | null
           global_film_id?: string | null
           id?: string
+          introduction_message?: string | null
           is_price_overridden?: boolean | null
           manual_override_total?: number | null
           notes_customer?: string | null
@@ -300,6 +302,7 @@ export type Database = {
           discount_percent?: number | null
           global_film_id?: string | null
           id?: string
+          introduction_message?: string | null
           is_price_overridden?: boolean | null
           manual_override_total?: number | null
           notes_customer?: string | null

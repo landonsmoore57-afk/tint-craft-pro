@@ -1144,6 +1144,12 @@ function generatePDFHTML({ quote, sections, settings, logoDataUrl, themeStyle, s
     </div>
   </div>
 
+    ${quote.introduction_message ? `
+      <div style="background: linear-gradient(135deg, ${brandPattern} 0%, ${brandTint} 100%); border-radius: 12px; padding: 24px; margin-bottom: 32px; border: 1px solid ${brandColor}20;">
+        <div style="color: ${brandShade}; font-size: 15px; line-height: 1.7; white-space: pre-wrap;">${quote.introduction_message}</div>
+      </div>
+    ` : ''}
+
     ${summary.total_savings > 0 ? `
       <div class="savings-banner">
         🎉 You're saving ${formatCurrency(summary.total_savings)} on this quote!
