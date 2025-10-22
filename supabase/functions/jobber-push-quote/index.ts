@@ -523,32 +523,80 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
 
     console.log(`Processing section in room: ${roomLabel}`);
 
+    // Check if section has manual price override
+    if (section.is_price_overridden && section.manual_override_total != null) {
+      console.log(`  Section has manual override: $${section.manual_override_total}`);
+      
+      const roomData = roomTotals.get(roomLabel) || {
+        roomLabel,
+        windowCount: 0,
+        subtotal: 0,
+        hasFilmRemoval: false
+      };
+      
+      roomData.windowCount += (section.windows || []).reduce((sum: number, w: any) => sum + (w.quantity || 1), 0);
+      roomData.subtotal += section.manual_override_total;
+      
+      // Check if any windows have film removal for label
+      const hasFilmRemoval = (section.windows || []).some((w: any) => (w.film_removal_fee_per_sqft || 0) > 0);
+      if (hasFilmRemoval) {
+        roomData.hasFilmRemoval = true;
+      }
+      
+      roomTotals.set(roomLabel, roomData);
+      
+      // Still track security film for materials calculation
+      for (const window of (section.windows || [])) {
+        const resolvedFilm = resolveFilm(window.window_film_id, section.section_film_id, quote.global_film_id);
+        const isSecurity = resolvedFilm?.security_film ?? false;
+        if (isSecurity) {
+          const linearFeet = (window.quantity || 1) * (2 * (window.width_in + window.height_in) / 12);
+          totalLinearFeetSecurity += linearFeet;
+        }
+      }
+      
+      continue; // Skip window-by-window calculation for this section
+    }
+
     // Calculate totals for windows in this section
     for (const window of (section.windows || [])) {
       console.log(`  Processing window: ${window.label}, film_removal_fee_per_sqft:`, window.film_removal_fee_per_sqft);
+      
+      const quantity = window.quantity || 1;
+      let lineTotal = 0;
       
       // Use quote dimensions if present, otherwise use exact
       const useQuoteDims = window.quote_width_in != null && window.quote_height_in != null;
       const width = useQuoteDims ? window.quote_width_in : window.width_in;
       const height = useQuoteDims ? window.quote_height_in : window.height_in;
-      const quantity = window.quantity || 1;
-      const wasteFactorPercent = window.waste_factor_percent || 0;
 
-      // Calculate area
-      const areaSqft = (width * height) / 144;
-      const lineAreaSqft = areaSqft * quantity;
-      const effectiveAreaSqft = lineAreaSqft * (1 + wasteFactorPercent / 100);
+      // Check if window has manual price override
+      if (window.is_price_overridden && window.manual_price != null) {
+        console.log(`    Window has manual override: $${window.manual_price}`);
+        lineTotal = window.manual_price * quantity;
+      } else {
+        const wasteFactorPercent = window.waste_factor_percent || 0;
 
-      // Resolve film (window → section → global precedence)
+        // Calculate area
+        const areaSqft = (width * height) / 144;
+        const lineAreaSqft = areaSqft * quantity;
+        const effectiveAreaSqft = lineAreaSqft * (1 + wasteFactorPercent / 100);
+
+        // Resolve film (window → section → global precedence)
+        const resolvedFilm = resolveFilm(window.window_film_id, section.section_film_id, quote.global_film_id);
+        const baseSellPerSqft = window.override_sell_per_sqft ?? resolvedFilm?.sell_per_sqft ?? 0;
+        const filmRemovalFee = window.film_removal_fee_per_sqft ?? 0;
+        const sellPerSqft = baseSellPerSqft + filmRemovalFee;
+        
+        console.log(`    Film removal fee: $${filmRemovalFee}, Total sell per sqft: $${sellPerSqft}`);
+
+        // Calculate window line total
+        lineTotal = effectiveAreaSqft * sellPerSqft;
+      }
+
+      // Resolve film for tracking purposes (outside conditional)
       const resolvedFilm = resolveFilm(window.window_film_id, section.section_film_id, quote.global_film_id);
-      const baseSellPerSqft = window.override_sell_per_sqft ?? resolvedFilm?.sell_per_sqft ?? 0;
       const filmRemovalFee = window.film_removal_fee_per_sqft ?? 0;
-      const sellPerSqft = baseSellPerSqft + filmRemovalFee;
-      
-      console.log(`    Film removal fee: $${filmRemovalFee}, Total sell per sqft: $${sellPerSqft}`);
-
-      // Calculate window line total
-      const lineTotal = effectiveAreaSqft * sellPerSqft;
 
       // Add to room total
       const roomData = roomTotals.get(roomLabel) || {
@@ -610,7 +658,13 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
   const taxAmount = taxableBase * ((quote.tax_percent || 0) / 100);
   
   // Grand total
-  const grandTotal = Math.round((subtotalAfterDiscounts + travelFee + taxAmount) * 100) / 100;
+  let grandTotal = Math.round((subtotalAfterDiscounts + travelFee + taxAmount) * 100) / 100;
+  
+  // Check if quote has manual price override
+  if (quote.is_price_overridden && quote.manual_override_total != null) {
+    console.log(`Quote has manual override: $${quote.manual_override_total}`);
+    grandTotal = quote.manual_override_total;
+  }
 
   console.log('=== FINAL TOTALS ===');
   console.log(`Windows Subtotal: $${windowsSubtotal.toFixed(2)}`);
