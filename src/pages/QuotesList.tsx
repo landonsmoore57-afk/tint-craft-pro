@@ -34,6 +34,8 @@ export default function QuotesList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<"all" | "In-Progress" | "done">("all");
+  const [jobberPushFilter, setJobberPushFilter] = useState<"all" | "yes" | "no">("all");
+  const [scheduledFilter, setScheduledFilter] = useState<"all" | "scheduled" | "unscheduled">("all");
   const [exporting, setExporting] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const navigate = useNavigate();
@@ -45,7 +47,7 @@ export default function QuotesList() {
 
   useEffect(() => {
     filterQuotes();
-  }, [quotes, searchQuery, statusFilter]);
+  }, [quotes, searchQuery, statusFilter, jobberPushFilter, scheduledFilter]);
 
   const fetchQuotes = async () => {
     try {
@@ -81,6 +83,20 @@ export default function QuotesList() {
     // Status filter
     if (statusFilter !== "all") {
       filtered = filtered.filter(q => q.status === statusFilter);
+    }
+
+    // Jobber Push filter
+    if (jobberPushFilter !== "all") {
+      filtered = filtered.filter(q => 
+        jobberPushFilter === "yes" ? q.pushed_to_jobber_at !== null : q.pushed_to_jobber_at === null
+      );
+    }
+
+    // Scheduled filter
+    if (scheduledFilter !== "all") {
+      filtered = filtered.filter(q => 
+        scheduledFilter === "scheduled" ? q.is_scheduled : !q.is_scheduled
+      );
     }
 
     // Search filter
@@ -235,28 +251,87 @@ export default function QuotesList() {
                 {filteredQuotes.length} of {quotes.length} quote{quotes.length !== 1 ? "s" : ""}
               </CardDescription>
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant={statusFilter === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setStatusFilter("all")}
-              >
-                All
-              </Button>
-              <Button
-                variant={statusFilter === "In-Progress" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setStatusFilter("In-Progress")}
-              >
-                In-Progress
-              </Button>
-              <Button
-                variant={statusFilter === "done" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setStatusFilter("done")}
-              >
-                Done
-              </Button>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground w-20">Status:</span>
+                <div className="flex gap-2">
+                  <Button
+                    variant={statusFilter === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setStatusFilter("all")}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={statusFilter === "In-Progress" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setStatusFilter("In-Progress")}
+                  >
+                    In-Progress
+                  </Button>
+                  <Button
+                    variant={statusFilter === "done" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setStatusFilter("done")}
+                  >
+                    Done
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground w-20">Jobber:</span>
+                <div className="flex gap-2">
+                  <Button
+                    variant={jobberPushFilter === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setJobberPushFilter("all")}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={jobberPushFilter === "yes" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setJobberPushFilter("yes")}
+                  >
+                    Yes
+                  </Button>
+                  <Button
+                    variant={jobberPushFilter === "no" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setJobberPushFilter("no")}
+                  >
+                    No
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground w-20">Scheduled:</span>
+                <div className="flex gap-2">
+                  <Button
+                    variant={scheduledFilter === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setScheduledFilter("all")}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={scheduledFilter === "scheduled" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setScheduledFilter("scheduled")}
+                  >
+                    Scheduled
+                  </Button>
+                  <Button
+                    variant={scheduledFilter === "unscheduled" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setScheduledFilter("unscheduled")}
+                  >
+                    Unscheduled
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
           
