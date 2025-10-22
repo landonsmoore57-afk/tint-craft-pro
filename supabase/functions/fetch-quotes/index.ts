@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     // Transform to include is_scheduled flag
     const quotesWithScheduled = quotes?.map(quote => ({
       ...quote,
-      is_scheduled: quote.job_assignments && quote.job_assignments.length > 0,
+      is_scheduled: Array.isArray(quote.job_assignments) && quote.job_assignments.length > 0,
       job_assignments: undefined // Remove the raw join data
     })) || [];
 
