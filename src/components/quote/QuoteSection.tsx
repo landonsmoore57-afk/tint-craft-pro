@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Settings2, Eraser } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Plus, Trash2, Settings2, Eraser, DollarSign } from "lucide-react";
 import { SectionData, SectionCalculation, FilmData, WindowData } from "@/lib/quoteCalculations";
 import { formatCurrency, formatSqft } from "@/lib/quoteCalculations";
 import { RoomSelector } from "./RoomSelector";
@@ -87,6 +88,12 @@ export function QuoteSection({
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-primary"></div>
               <Label className="text-base font-semibold text-foreground">{displayTitle}</Label>
+              {section.is_price_overridden && (
+                <Badge variant="secondary" className="text-xs gap-1">
+                  <DollarSign className="h-3 w-3" />
+                  Manual Section Price
+                </Badge>
+              )}
             </div>
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Room / Area</Label>
@@ -124,6 +131,50 @@ export function QuoteSection({
             placeholder="Use quote default film..."
           />
         </div>
+        
+        {calculation && (
+          <div className="pt-3 space-y-3">
+            <div className="bg-muted/30 p-3 rounded-md border">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-medium uppercase tracking-wide">Section Total Override</Label>
+                <Switch
+                  checked={section.is_price_overridden || false}
+                  onCheckedChange={(checked) => {
+                    onUpdateSection(section.id, { 
+                      is_price_overridden: checked,
+                      manual_override_total: checked ? calculation.section_total : null
+                    });
+                  }}
+                />
+              </div>
+              
+              {section.is_price_overridden ? (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Manual Section Total</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={section.manual_override_total ?? ""}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      onUpdateSection(section.id, { manual_override_total: val || 0 });
+                    }}
+                    className="bg-background"
+                    placeholder="Enter manual section total"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Auto-calculated: {formatCurrency(calculation.section_total)}
+                  </p>
+                </div>
+              ) : (
+                <div className="text-sm font-bold">
+                  Section Total: {formatCurrency(calculation.section_total)}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-4 p-6">
         {section.windows.map((window, wIndex) => {
@@ -333,22 +384,68 @@ export function QuoteSection({
               </div>
               
               {calc && (
-                <div className="bg-quote-calculation text-quote-calculation-foreground p-3 rounded-md border">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
-                    <div className="flex justify-between md:flex-col md:justify-start">
-                      <span className="text-xs uppercase tracking-wide opacity-80">
-                        Area {calc.used_dims === 'quote' && <span className="text-primary">(Quote)</span>}
-                      </span>
-                      <span className="font-semibold">{formatSqft(calc.effective_area_sqft)} sqft</span>
+                <div className="space-y-3">
+                  <div className="bg-quote-calculation text-quote-calculation-foreground p-3 rounded-md border">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+                      <div className="flex justify-between md:flex-col md:justify-start">
+                        <span className="text-xs uppercase tracking-wide opacity-80">
+                          Area {calc.used_dims === 'quote' && <span className="text-primary">(Quote)</span>}
+                        </span>
+                        <span className="font-semibold">{formatSqft(calc.effective_area_sqft)} sqft</span>
+                      </div>
+                      <div className="flex justify-between md:flex-col md:justify-start">
+                        <span className="text-xs uppercase tracking-wide opacity-80">Rate</span>
+                        <span className="font-semibold">{formatCurrency(calc.sell_per_sqft)}/sqft</span>
+                      </div>
+                      <div className="flex justify-between md:flex-col md:justify-start">
+                        <span className="text-xs uppercase tracking-wide opacity-80">Line Total</span>
+                        <span className="font-bold text-base">{formatCurrency(calc.line_total)}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between md:flex-col md:justify-start">
-                      <span className="text-xs uppercase tracking-wide opacity-80">Rate</span>
-                      <span className="font-semibold">{formatCurrency(calc.sell_per_sqft)}/sqft</span>
+                  </div>
+
+                  <div className="bg-muted/30 p-3 rounded-md border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-medium uppercase tracking-wide">Manual Price Override</Label>
+                      <div className="flex items-center gap-2">
+                        {window.is_price_overridden && (
+                          <Badge variant="secondary" className="text-xs gap-1">
+                            <DollarSign className="h-3 w-3" />
+                            Manual
+                          </Badge>
+                        )}
+                        <Switch
+                          checked={window.is_price_overridden || false}
+                          onCheckedChange={(checked) => {
+                            onUpdateWindow(section.id, window.id, { 
+                              is_price_overridden: checked,
+                              manual_price: checked ? calc.line_total : null
+                            });
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="flex justify-between md:flex-col md:justify-start">
-                      <span className="text-xs uppercase tracking-wide opacity-80">Line Total</span>
-                      <span className="font-bold text-base">{formatCurrency(calc.line_total)}</span>
-                    </div>
+                    
+                    {window.is_price_overridden && (
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Manual Price</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={window.manual_price ?? ""}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            onUpdateWindow(section.id, window.id, { manual_price: val || 0 });
+                          }}
+                          className="bg-background"
+                          placeholder="Enter manual price"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Auto-calculated: {formatCurrency(calc.line_total)}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

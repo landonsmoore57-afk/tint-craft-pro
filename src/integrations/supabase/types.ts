@@ -369,6 +369,8 @@ export type Database = {
           created_at: string | null
           custom_room_name: string | null
           id: string
+          is_price_overridden: boolean | null
+          manual_override_total: number | null
           name: string
           position: number | null
           quote_id: string
@@ -381,6 +383,8 @@ export type Database = {
           created_at?: string | null
           custom_room_name?: string | null
           id?: string
+          is_price_overridden?: boolean | null
+          manual_override_total?: number | null
           name: string
           position?: number | null
           quote_id: string
@@ -393,6 +397,8 @@ export type Database = {
           created_at?: string | null
           custom_room_name?: string | null
           id?: string
+          is_price_overridden?: boolean | null
+          manual_override_total?: number | null
           name?: string
           position?: number | null
           quote_id?: string
@@ -501,7 +507,9 @@ export type Database = {
           film_removal_fee_per_sqft: number | null
           height_in: number
           id: string
+          is_price_overridden: boolean | null
           label: string
+          manual_price: number | null
           notes: string | null
           override_sell_per_sqft: number | null
           position: number | null
@@ -519,7 +527,9 @@ export type Database = {
           film_removal_fee_per_sqft?: number | null
           height_in: number
           id?: string
+          is_price_overridden?: boolean | null
           label: string
+          manual_price?: number | null
           notes?: string | null
           override_sell_per_sqft?: number | null
           position?: number | null
@@ -537,7 +547,9 @@ export type Database = {
           film_removal_fee_per_sqft?: number | null
           height_in?: number
           id?: string
+          is_price_overridden?: boolean | null
           label?: string
+          manual_price?: number | null
           notes?: string | null
           override_sell_per_sqft?: number | null
           position?: number | null

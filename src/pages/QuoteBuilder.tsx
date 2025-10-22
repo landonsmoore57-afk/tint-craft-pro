@@ -256,6 +256,8 @@ export default function QuoteBuilder() {
         room_id: section.room_id,
         custom_room_name: section.custom_room_name,
         section_film_id: section.section_film_id,
+        is_price_overridden: section.is_price_overridden || false,
+        manual_override_total: section.manual_override_total || null,
         windows: windowsData
           .filter(w => w.section_id === section.id)
           .map(w => {
@@ -276,6 +278,8 @@ export default function QuoteBuilder() {
               window_film_id: w.window_film_id,
               override_sell_per_sqft: w.override_sell_per_sqft,
               film_removal_fee_per_sqft: w.film_removal_fee_per_sqft ?? 0,
+              is_price_overridden: w.is_price_overridden || false,
+              manual_price: w.manual_price || null,
             };
           }),
       }));
@@ -345,6 +349,8 @@ export default function QuoteBuilder() {
         room_id: section.room_id,
         custom_room_name: section.custom_room_name,
         section_film_id: section.section_film_id,
+        is_price_overridden: section.is_price_overridden || false,
+        manual_override_total: section.manual_override_total || null,
         position: sIndex,
         windows: section.windows.map((window, wIndex) => ({
           id: window.id,
@@ -358,6 +364,8 @@ export default function QuoteBuilder() {
           window_film_id: window.window_film_id || null,
           override_sell_per_sqft: window.override_sell_per_sqft || null,
           film_removal_fee_per_sqft: window.film_removal_fee_per_sqft ?? 0,
+          is_price_overridden: window.is_price_overridden || false,
+          manual_price: window.manual_price || null,
           position: wIndex,
         })),
       }));
@@ -428,6 +436,8 @@ export default function QuoteBuilder() {
         room_id: null,
         custom_room_name: null,
         section_film_id: null,
+        is_price_overridden: false,
+        manual_override_total: null,
         windows: [],
       },
     ]);
@@ -468,6 +478,8 @@ export default function QuoteBuilder() {
               window_film_id: null,
               override_sell_per_sqft: null,
               film_removal_fee_per_sqft: 0,
+              is_price_overridden: false,
+              manual_price: null,
             },
           ],
         };

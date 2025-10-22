@@ -31,6 +31,8 @@ export interface WindowData {
   window_film_id: string | null;
   override_sell_per_sqft: number | null;
   film_removal_fee_per_sqft?: number;
+  is_price_overridden?: boolean;
+  manual_price?: number | null;
 }
 
 export interface SectionData {
@@ -40,6 +42,8 @@ export interface SectionData {
   custom_room_name: string | null;
   section_film_id: string | null;
   windows: WindowData[];
+  is_price_overridden?: boolean;
+  manual_override_total?: number | null;
 }
 
 export interface QuoteData {
@@ -224,7 +228,9 @@ export function calculateQuote(
       }
 
       // Calculate line total
-      const line_total = effective_area_sqft * sell_per_sqft;
+      const line_total = window.is_price_overridden && window.manual_price != null
+        ? window.manual_price
+        : effective_area_sqft * sell_per_sqft;
 
       // Calculate linear feet for security film (perimeter-based) - ALWAYS use exact dimensions for materials
       const is_security = resolved_film?.security_film ?? false;
@@ -245,7 +251,9 @@ export function calculateQuote(
       };
     });
 
-    const section_total = calculatedWindows.reduce((sum, w) => sum + w.line_total, 0);
+    const section_total = section.is_price_overridden && section.manual_override_total != null
+      ? section.manual_override_total
+      : calculatedWindows.reduce((sum, w) => sum + w.line_total, 0);
 
     return {
       ...section,
