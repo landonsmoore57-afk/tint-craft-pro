@@ -23,6 +23,7 @@ export default function Settings() {
   const [tagline, setTagline] = useState("");
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [defaultFilmId, setDefaultFilmId] = useState<string | null>(null);
+  const [defaultIntroductionMessage, setDefaultIntroductionMessage] = useState("");
   const [jobberConnected, setJobberConnected] = useState(false);
   const [checkingJobber, setCheckingJobber] = useState(false);
 
@@ -70,6 +71,7 @@ export default function Settings() {
         setThemeStyle(data.theme_style || "Modern");
         setTagline(data.tagline || "");
         setDefaultFilmId(data.default_film_id || null);
+        setDefaultIntroductionMessage(data.default_introduction_message || "");
       }
     } catch (error: any) {
       toast({
@@ -222,6 +224,7 @@ export default function Settings() {
         theme_style: themeStyle,
         tagline: tagline || null,
         default_film_id: defaultFilmId,
+        default_introduction_message: defaultIntroductionMessage || null,
       };
 
       console.log('Settings data to save:', settingsData);
@@ -377,6 +380,23 @@ export default function Settings() {
               This film will be automatically applied as the <strong>Global Film</strong> for all <strong>new quotes</strong>. 
               It will NOT affect existing quotes.
             </p>
+          </div>
+
+          <div>
+            <Label>Default Introduction Message for New Quotes</Label>
+            <Textarea 
+              value={defaultIntroductionMessage} 
+              onChange={(e) => setDefaultIntroductionMessage(e.target.value)} 
+              rows={4} 
+              maxLength={1000}
+              placeholder="Enter default introduction message for new quotes..."
+            />
+            <div className="flex justify-between items-center mt-1">
+              <p className="text-sm text-muted-foreground">
+                This message will appear at the top of new quotes (can be customized per quote)
+              </p>
+              <span className="text-xs text-muted-foreground">{defaultIntroductionMessage.length}/1000</span>
+            </div>
           </div>
 
           <Button onClick={saveSettings} disabled={loading}>

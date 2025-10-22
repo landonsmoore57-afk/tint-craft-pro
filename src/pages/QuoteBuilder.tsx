@@ -101,7 +101,7 @@ export default function QuoteBuilder() {
       // Get company settings
       const { data: settings, error: settingsError } = await supabase
         .from("company_settings")
-        .select("default_film_id")
+        .select("default_film_id, default_introduction_message")
         .limit(1)
         .maybeSingle();
 
@@ -110,6 +110,12 @@ export default function QuoteBuilder() {
       if (settingsError && settingsError.code !== "PGRST116") {
         console.error('Error fetching company settings:', settingsError);
         throw settingsError;
+      }
+
+      // Load default introduction message if available
+      if (settings?.default_introduction_message) {
+        console.log('Loading default introduction message from settings');
+        setIntroductionMessage(settings.default_introduction_message);
       }
 
       // If there's a default film ID, fetch the film details

@@ -20,6 +20,7 @@ export type Database = {
           company_name: string
           created_at: string | null
           default_film_id: string | null
+          default_introduction_message: string | null
           id: string
           logo_url: string | null
           pdf_footer_terms: string | null
@@ -33,6 +34,7 @@ export type Database = {
           company_name?: string
           created_at?: string | null
           default_film_id?: string | null
+          default_introduction_message?: string | null
           id?: string
           logo_url?: string | null
           pdf_footer_terms?: string | null
@@ -46,6 +48,7 @@ export type Database = {
           company_name?: string
           created_at?: string | null
           default_film_id?: string | null
+          default_introduction_message?: string | null
           id?: string
           logo_url?: string | null
           pdf_footer_terms?: string | null
