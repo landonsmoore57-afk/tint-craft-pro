@@ -20,6 +20,7 @@ interface JobsDesktopViewProps {
   onViewQuote: (quoteId: string) => void;
   onReschedule: (assignmentId: string, date: Date) => void;
   onUnassign: (assignmentId: string) => void;
+  onComplete?: (quoteId: string, assignmentId: string) => void;
   getStatusColor: (status: string) => string;
   hideViewAction?: boolean;
   hideDeleteAction?: boolean;
@@ -30,6 +31,7 @@ export function JobsDesktopView({
   onViewQuote, 
   onReschedule, 
   onUnassign,
+  onComplete,
   getStatusColor,
   hideViewAction,
   hideDeleteAction
@@ -79,6 +81,15 @@ export function JobsDesktopView({
                         >
                           <Eye className="h-4 w-4 mr-2" />
                           View Quote
+                        </Button>
+                      )}
+                      {job.status.toLowerCase() !== 'done' && onComplete && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => onComplete(job.quote_id, job.assignment_id)}
+                        >
+                          Complete
                         </Button>
                       )}
                       <Popover>

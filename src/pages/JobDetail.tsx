@@ -263,6 +263,46 @@ export default function JobDetail() {
           </Button>
         </div>
 
+        {/* Complete Button - only show if not already done */}
+        {job.status.toLowerCase() !== 'done' && (
+          <Button
+            className="w-full h-12 touch-manipulation"
+            onClick={async () => {
+              try {
+                const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/quotes?id=eq.${job.quote_id}`, {
+                  method: 'PATCH',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                    'Prefer': 'return=minimal'
+                  },
+                  body: JSON.stringify({
+                    status: 'done'
+                  })
+                });
+                
+                if (response.ok) {
+                  toast({
+                    title: "Job completed",
+                    description: "Quote status updated to done",
+                  });
+                  fetchJobDetail();
+                } else {
+                  throw new Error('Failed to update status');
+                }
+              } catch (error: any) {
+                toast({
+                  title: "Update failed",
+                  description: error.message,
+                  variant: "destructive",
+                });
+              }
+            }}
+          >
+            Mark as Completed
+          </Button>
+        )}
+
         {/* Window Summary */}
         <Card>
           <CardHeader>

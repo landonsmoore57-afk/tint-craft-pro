@@ -186,6 +186,30 @@ export default function Jobs() {
     }
   };
 
+  const handleComplete = async (quoteId: string, assignmentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('quotes')
+        .update({ status: 'done' })
+        .eq('id', quoteId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Job completed",
+        description: "Quote status updated to done",
+      });
+
+      fetchJobs();
+    } catch (error: any) {
+      toast({
+        title: "Update failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const setQuickRange = (weeks: number) => {
     const from = startOfWeek(new Date(), { weekStartsOn: 1 });
     const to = addWeeks(from, weeks);
@@ -314,6 +338,7 @@ export default function Jobs() {
               onViewQuote={(quoteId) => navigate(`/quote/${quoteId}`)}
               onReschedule={handleReschedule}
               onUnassign={handleUnassign}
+              onComplete={handleComplete}
               getStatusColor={getStatusColor}
               hideViewAction={isTinter}
               hideDeleteAction={isTinter}

@@ -23,6 +23,8 @@ interface Quote {
   status: string;
   created_at: string;
   updated_at: string;
+  pushed_to_jobber_at: string | null;
+  is_scheduled: boolean;
 }
 
 export default function QuotesList() {
@@ -31,7 +33,7 @@ export default function QuotesList() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "done">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "In-Progress" | "done">("all");
   const [exporting, setExporting] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const navigate = useNavigate();
@@ -242,11 +244,11 @@ export default function QuotesList() {
                 All
               </Button>
               <Button
-                variant={statusFilter === "draft" ? "default" : "outline"}
+                variant={statusFilter === "In-Progress" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setStatusFilter("draft")}
+                onClick={() => setStatusFilter("In-Progress")}
               >
-                Draft
+                In-Progress
               </Button>
               <Button
                 variant={statusFilter === "done" ? "default" : "outline"}
@@ -294,21 +296,22 @@ export default function QuotesList() {
                   <TableHead>Customer</TableHead>
                   <TableHead>Site Address</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Jobber Push</TableHead>
+                  <TableHead>Scheduled</TableHead>
                   <TableHead>Created</TableHead>
-                  <TableHead>Updated</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : filteredQuotes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <div className="flex flex-col items-center gap-2">
                         <p className="text-muted-foreground">
                           {searchQuery || statusFilter !== "all" 
@@ -350,8 +353,17 @@ export default function QuotesList() {
                           {quote.status}
                         </Badge>
                       </TableCell>
+                      <TableCell>
+                        <Badge variant={quote.pushed_to_jobber_at ? "default" : "secondary"}>
+                          {quote.pushed_to_jobber_at ? "Yes" : "No"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={quote.is_scheduled ? "default" : "secondary"}>
+                          {quote.is_scheduled ? "Scheduled" : "Unscheduled"}
+                        </Badge>
+                      </TableCell>
                       <TableCell>{format(new Date(quote.created_at), "MMM d, yyyy")}</TableCell>
-                      <TableCell>{format(new Date(quote.updated_at), "MMM d, yyyy")}</TableCell>
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"

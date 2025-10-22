@@ -258,6 +258,7 @@ export type Database = {
           manual_override_total: number | null
           notes_customer: string | null
           notes_internal: string | null
+          pushed_to_jobber_at: string | null
           quote_no: number
           quote_number: string
           site_address: string | null
@@ -284,6 +285,7 @@ export type Database = {
           manual_override_total?: number | null
           notes_customer?: string | null
           notes_internal?: string | null
+          pushed_to_jobber_at?: string | null
           quote_no?: number
           quote_number: string
           site_address?: string | null
@@ -310,6 +312,7 @@ export type Database = {
           manual_override_total?: number | null
           notes_customer?: string | null
           notes_internal?: string | null
+          pushed_to_jobber_at?: string | null
           quote_no?: number
           quote_number?: string
           site_address?: string | null

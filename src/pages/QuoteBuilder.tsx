@@ -37,7 +37,7 @@ export default function QuoteBuilder() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [siteAddress, setSiteAddress] = useState("");
-  const [status, setStatus] = useState("draft");
+  const [status, setStatus] = useState("In-Progress");
   const [customerType, setCustomerType] = useState("Residential");
   
   // Quote settings
@@ -777,7 +777,7 @@ export default function QuoteBuilder() {
                       <SelectValue className="capitalize" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="In-Progress">In-Progress</SelectItem>
                       <SelectItem value="done">Done</SelectItem>
                     </SelectContent>
                   </Select>

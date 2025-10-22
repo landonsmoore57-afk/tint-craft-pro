@@ -17,10 +17,13 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Fetch all quotes with their sections and windows
+    // Fetch all quotes with job assignment status
     const { data: quotes, error } = await supabaseAdmin
       .from('quotes')
-      .select('*')
+      .select(`
+        *,
+        job_assignments (id)
+      `)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -28,8 +31,15 @@ Deno.serve(async (req) => {
       throw error;
     }
 
+    // Transform to include is_scheduled flag
+    const quotesWithScheduled = quotes?.map(quote => ({
+      ...quote,
+      is_scheduled: quote.job_assignments && quote.job_assignments.length > 0,
+      job_assignments: undefined // Remove the raw join data
+    })) || [];
+
     return new Response(
-      JSON.stringify(quotes),
+      JSON.stringify(quotesWithScheduled),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200 

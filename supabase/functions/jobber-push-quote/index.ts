@@ -468,6 +468,16 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: 'Failed to create quote in Jobber' }, 400);
     }
 
+    // Mark quote as pushed to Jobber
+    const { error: updateError } = await supabase
+      .from('quotes')
+      .update({ pushed_to_jobber_at: new Date().toISOString() })
+      .eq('id', quoteId);
+
+    if (updateError) {
+      console.error('Failed to update pushed_to_jobber_at:', updateError);
+    }
+
     console.log('=== SUCCESS ===');
     console.log('Jobber quote created:', jobberQuote.id, 'Quote Number:', jobberQuote.quoteNumber);
 
