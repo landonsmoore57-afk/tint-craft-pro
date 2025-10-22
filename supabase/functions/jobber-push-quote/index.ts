@@ -420,11 +420,31 @@ Deno.serve(async (req) => {
     console.log(`Total line items: ${lineItems.length}`);
     console.log(`Expected total: $${totals.grandTotal.toFixed(2)}`);
     
+    // Build message with film type at the top
+    let messageText = '';
+    
+    // Add film type information at the top
+    if (quote.global_film_id) {
+      const globalFilm = filmsMap.get(quote.global_film_id);
+      if (globalFilm) {
+        messageText += `Film Type: ${globalFilm.brand} ${globalFilm.series} ${globalFilm.name}`;
+        if (globalFilm.vlt) {
+          messageText += ` (${globalFilm.vlt}% VLT)`;
+        }
+        messageText += '\n\n';
+      }
+    }
+    
+    // Add introduction message below film type
+    if (quote.introduction_message) {
+      messageText += quote.introduction_message;
+    }
+    
     console.log('Creating quote with variables:', JSON.stringify({
       clientId: clientId,
       propertyId: propertyId,
       title: quote.customer_type || 'Residential',
-      message: quote.introduction_message || null,
+      message: messageText || null,
       lineItems: lineItems
     }, null, 2));
 
@@ -432,7 +452,7 @@ Deno.serve(async (req) => {
       clientId: clientId,
       propertyId: propertyId,
       title: quote.customer_type || 'Residential',
-      message: quote.introduction_message || null,
+      message: messageText || null,
       lineItems: lineItems
     });
 
