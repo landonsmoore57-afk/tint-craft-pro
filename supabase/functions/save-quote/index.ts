@@ -58,6 +58,8 @@ Deno.serve(async (req) => {
       room_id: s.room_id,
       custom_room_name: s.custom_room_name,
       section_film_id: s.section_film_id,
+      is_price_overridden: s.is_price_overridden || false,
+      manual_override_total: s.manual_override_total || null,
       position: i
     }))
     const { data: savedSections, error: sErr } = await supabase.from('sections').upsert(sectionsInput).select()
@@ -79,6 +81,8 @@ Deno.serve(async (req) => {
           window_film_id: w.window_film_id,
           override_sell_per_sqft: w.override_sell_per_sqft,
           film_removal_fee_per_sqft: w.film_removal_fee_per_sqft ?? 0,
+          is_price_overridden: w.is_price_overridden || false,
+          manual_price: w.manual_price || null,
           position: j
         };
         console.log(`Window ${j} data:`, { 
