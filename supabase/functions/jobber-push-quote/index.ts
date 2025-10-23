@@ -594,8 +594,6 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
 
     // Calculate totals for windows in this section
     for (const window of (section.windows || [])) {
-      console.log(`  Processing window: ${window.label}, film_removal_fee_per_sqft:`, window.film_removal_fee_per_sqft);
-      
       const quantity = window.quantity || 1;
       let lineTotal = 0;
       
@@ -604,10 +602,12 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
       const width = useQuoteDims ? window.quote_width_in : window.width_in;
       const height = useQuoteDims ? window.quote_height_in : window.height_in;
 
+      console.log(`  Processing window: ${window.label}, dimensions: ${width}x${height}, qty: ${quantity}, is_price_overridden: ${window.is_price_overridden}, manual_price: ${window.manual_price}`);
+
       // Check if window has manual price override
       if (window.is_price_overridden && window.manual_price != null) {
-        console.log(`    Window has manual override: $${window.manual_price}`);
-        lineTotal = window.manual_price * quantity;
+        console.log(`    ✓ Using window manual override: $${window.manual_price} × ${quantity} = $${window.manual_price * quantity}`);
+        lineTotal = window.manual_price;
       } else {
         const wasteFactorPercent = window.waste_factor_percent || 0;
 
@@ -621,11 +621,10 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
         const baseSellPerSqft = window.override_sell_per_sqft ?? resolvedFilm?.sell_per_sqft ?? 0;
         const filmRemovalFee = window.film_removal_fee_per_sqft ?? 0;
         const sellPerSqft = baseSellPerSqft + filmRemovalFee;
-        
-        console.log(`    Film removal fee: $${filmRemovalFee}, Total sell per sqft: $${sellPerSqft}`);
 
         // Calculate window line total
         lineTotal = effectiveAreaSqft * sellPerSqft;
+        console.log(`    ✗ No override - Calculated: ${effectiveAreaSqft.toFixed(2)} sqft × $${sellPerSqft.toFixed(2)} = $${lineTotal.toFixed(2)}`);
       }
 
       // Resolve film for tracking purposes (outside conditional)
@@ -641,9 +640,8 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
       };
       
       roomData.windowCount += quantity;
-      roomData.subtotal += lineTotal;
+      roomData.subtotal += lineTotal * quantity;
       if (filmRemovalFee > 0) {
-        console.log(`    Setting hasFilmRemoval=true for room: ${roomLabel}`);
         roomData.hasFilmRemoval = true;
       }
       roomTotals.set(roomLabel, roomData);
