@@ -596,6 +596,7 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
     for (const window of (section.windows || [])) {
       const quantity = window.quantity || 1;
       let lineTotal = 0;
+      let isManualOverride = false;
       
       // Use quote dimensions if present, otherwise use exact
       const useQuoteDims = window.quote_width_in != null && window.quote_height_in != null;
@@ -604,10 +605,11 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
 
       console.log(`  Processing window: ${window.label}, dimensions: ${width}x${height}, qty: ${quantity}, is_price_overridden: ${window.is_price_overridden}, manual_price: ${window.manual_price}`);
 
-      // Check if window has manual price override
+      // Check if window has manual price override (manual_price is already the TOTAL for all quantities)
       if (window.is_price_overridden && window.manual_price != null) {
-        console.log(`    ✓ Using window manual override: $${window.manual_price} × ${quantity} = $${window.manual_price * quantity}`);
+        console.log(`    ✓ Using window manual override: $${window.manual_price} (total for ${quantity} windows)`);
         lineTotal = window.manual_price;
+        isManualOverride = true;
       } else {
         const wasteFactorPercent = window.waste_factor_percent || 0;
 
@@ -640,7 +642,8 @@ function calculateQuoteTotal(quote: any, filmsMap: Map<string, any>, gasket: any
       };
       
       roomData.windowCount += quantity;
-      roomData.subtotal += lineTotal * quantity;
+      // CRITICAL: Only multiply by quantity if NOT using manual override (manual_price is already total)
+      roomData.subtotal += isManualOverride ? lineTotal : lineTotal * quantity;
       if (filmRemovalFee > 0) {
         roomData.hasFilmRemoval = true;
       }
