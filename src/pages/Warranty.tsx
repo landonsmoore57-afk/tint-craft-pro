@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, ChevronDown, Copy, Download, Plus, Edit, Trash2, ArrowLeft } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronDown, Copy, Download, Plus, Edit, Trash2, ArrowLeft, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -421,31 +421,43 @@ export default function Warranty() {
               <Label htmlFor="effective-date" className="flex items-center gap-1">
                 Effective Date <span className="text-destructive">*</span>
               </Label>
-              <Popover>
-                <PopoverTrigger asChild>
+              <div className="flex gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "flex-1 justify-start text-left font-normal",
+                        !effectiveDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {effectiveDate ? format(effectiveDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={effectiveDate}
+                      onSelect={(date) => date && setEffectiveDate(date)}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                {effectiveDate && (
                   <Button
                     variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !effectiveDate && "text-muted-foreground"
-                    )}
+                    size="icon"
+                    onClick={() => setEffectiveDate(new Date())}
+                    className="flex-shrink-0"
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {effectiveDate ? format(effectiveDate, "PPP") : <span>Pick a date</span>}
+                    <X className="h-4 w-4" />
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={effectiveDate}
-                    onSelect={(date) => date && setEffectiveDate(date)}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
-                Displays as: {effectiveDateLong}
+                Displays as: {format(effectiveDate, "MMMM d, yyyy")}
               </p>
             </div>
 
@@ -503,26 +515,36 @@ export default function Warranty() {
             <CollapsibleContent className="space-y-4 pt-4">
               <div className="space-y-2">
                 <Label htmlFor="issue-date">Issue Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal"
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {format(issueDate, "PPP")}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={issueDate}
-                      onSelect={(date) => date && setIssueDate(date)}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
+                <div className="flex gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="flex-1 justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {format(issueDate, "PPP")}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={issueDate}
+                        onSelect={(date) => date && setIssueDate(date)}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIssueDate(new Date())}
+                    className="flex-shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-2">
