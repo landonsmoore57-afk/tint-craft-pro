@@ -710,7 +710,7 @@ export default function Warranty() {
                     <img 
                       src={logo} 
                       alt="St. Louis Window Tinting" 
-                      style={{ height: "176px", width: "auto", marginBottom: "4px" }}
+                      style={{ height: "176px", width: "auto", marginBottom: "2px" }}
                       className="animate-fade-in"
                     />
                     <div className="flex items-center gap-2 text-lg font-semibold" style={{ color: "#FF6B35" }}>
