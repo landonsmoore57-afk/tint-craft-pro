@@ -98,7 +98,7 @@ export default function Warranty() {
     setProjectName("");
     setProjectAddress("");
     setBodyCopy(DEFAULT_BODY_TEMPLATE);
-    setIssueDate(new Date());
+    setIssueDate(null);
     setRecipientName("");
     setRecipientAddress("");
     setFooterNote("");
@@ -710,7 +710,7 @@ export default function Warranty() {
                     <img 
                       src={logo} 
                       alt="St. Louis Window Tinting" 
-                      className="h-20 w-auto animate-fade-in mb-2" 
+                      className="h-26 w-auto animate-fade-in mb-2" 
                     />
                     <div className="flex items-center gap-2 text-base font-semibold" style={{ color: "#FF6B35" }}>
                       <span>Residential</span>
