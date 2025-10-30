@@ -703,12 +703,16 @@ export default function Warranty() {
               {/* Header with Centered Logo */}
               <div className="mb-8">
                 {showLogo && (
-                  <div className="flex justify-center mb-6">
+                  <div className="flex flex-col items-center mb-6">
                     <img 
                       src={logo} 
                       alt="St. Louis Window Tinting" 
-                      className="h-24 w-auto animate-fade-in" 
+                      className="h-24 w-auto animate-fade-in mb-3" 
                     />
+                    <div className="text-center space-y-1">
+                      <div className="text-sm font-medium text-slate-700">314-799-9411</div>
+                      <div className="text-sm font-medium text-slate-700">craig@stlwindowtinting.com</div>
+                    </div>
                   </div>
                 )}
                 
