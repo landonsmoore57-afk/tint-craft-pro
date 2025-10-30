@@ -266,21 +266,33 @@ export default function Warranty() {
     // Clone the element to avoid modifying the visible preview
     const clonedElement = element.cloneNode(true) as HTMLElement;
     
-    // Convert SVG logo to base64 for PDF rendering
+    // Convert SVG logo to PNG data URL for PDF rendering
     const logoImg = clonedElement.querySelector('img[alt="St. Louis Window Tinting"]') as HTMLImageElement;
     if (logoImg && showLogo) {
       try {
-        // Fetch the SVG and convert to base64
-        const response = await fetch(logo);
-        const blob = await response.blob();
-        const reader = new FileReader();
-        await new Promise((resolve) => {
-          reader.onloadend = resolve;
-          reader.readAsDataURL(blob);
+        // Create a canvas to convert SVG to PNG
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        
+        await new Promise((resolve, reject) => {
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width * 2; // Higher resolution
+            canvas.height = img.height * 2;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              logoImg.src = canvas.toDataURL('image/png');
+              resolve(null);
+            } else {
+              reject(new Error('Failed to get canvas context'));
+            }
+          };
+          img.onerror = reject;
+          img.src = logo;
         });
-        logoImg.src = reader.result as string;
       } catch (error) {
-        console.error("Error loading logo for PDF:", error);
+        console.error("Error converting logo for PDF:", error);
       }
     }
 
@@ -293,17 +305,20 @@ export default function Warranty() {
       html2canvas: { 
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         logging: false
       },
       jsPDF: { unit: "in", format: "letter", orientation: "portrait" as const },
     };
 
-    html2pdf().set(opt).from(clonedElement).save();
-
-    toast({
-      title: "PDF Generated",
-      description: `Downloading ${filename}`,
-    });
+    // Wait a bit for image conversion to complete
+    setTimeout(() => {
+      html2pdf().set(opt).from(clonedElement).save();
+      toast({
+        title: "PDF Generated",
+        description: `Downloading ${filename}`,
+      });
+    }, 100);
   };
 
   const handleCopyToClipboard = async () => {
@@ -754,7 +769,7 @@ export default function Warranty() {
               </div>
 
               {/* Body Content */}
-              <div className="mb-12">
+              <div className="mb-16">
                 <div className="border-l-4 border-[#0E2535] pl-6 py-2">
                   <div
                     className="text-base whitespace-pre-line leading-relaxed text-slate-700"
@@ -763,18 +778,23 @@ export default function Warranty() {
                     {processedBodyCopy.split('\n').map((line, index) => {
                       // Check if this line contains "Craig Moore"
                       if (line.includes('Craig Moore') && showSignature) {
+                        const beforeCraig = line.substring(0, line.indexOf('Craig Moore'));
                         return (
-                          <div key={index} className="flex items-center gap-4">
-                            <span>{line}</span>
-                            <span 
-                              className="text-2xl" 
-                              style={{ 
-                                fontFamily: "'Brush Script MT', 'Lucida Handwriting', cursive",
-                                color: "#0E2535"
-                              }}
-                            >
-                              Craig Moore
-                            </span>
+                          <div key={index}>
+                            <div className="mb-8">{beforeCraig}</div>
+                            <div className="flex justify-end items-center">
+                              <span 
+                                className="text-5xl mr-8" 
+                                style={{ 
+                                  fontFamily: "'Dancing Script', 'Brush Script MT', 'Lucida Handwriting', cursive",
+                                  color: "#0E2535",
+                                  fontWeight: 700,
+                                  letterSpacing: "0.05em"
+                                }}
+                              >
+                                Craig Moore
+                              </span>
+                            </div>
                           </div>
                         );
                       }
