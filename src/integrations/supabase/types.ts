@@ -510,6 +510,54 @@ export type Database = {
         }
         Relationships: []
       }
+      warranties: {
+        Row: {
+          body_copy: string
+          created_at: string
+          effective_date: string
+          footer_note: string | null
+          id: string
+          issue_date: string
+          project_address: string | null
+          project_name: string
+          recipient_address: string | null
+          recipient_name: string | null
+          show_logo: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body_copy: string
+          created_at?: string
+          effective_date: string
+          footer_note?: string | null
+          id?: string
+          issue_date?: string
+          project_address?: string | null
+          project_name: string
+          recipient_address?: string | null
+          recipient_name?: string | null
+          show_logo?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body_copy?: string
+          created_at?: string
+          effective_date?: string
+          footer_note?: string | null
+          id?: string
+          issue_date?: string
+          project_address?: string | null
+          project_name?: string
+          recipient_address?: string | null
+          recipient_name?: string | null
+          show_logo?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       windows: {
         Row: {
           created_at: string | null
