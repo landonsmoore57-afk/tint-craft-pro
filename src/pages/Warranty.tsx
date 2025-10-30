@@ -709,9 +709,10 @@ export default function Warranty() {
                       alt="St. Louis Window Tinting" 
                       className="h-24 w-auto animate-fade-in mb-3" 
                     />
-                    <div className="text-center space-y-1">
-                      <div className="text-sm font-medium text-slate-700">314-799-9411</div>
-                      <div className="text-sm font-medium text-slate-700">craig@stlwindowtinting.com</div>
+                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                      <span className="font-medium">314-799-9411</span>
+                      <span className="text-slate-400">•</span>
+                      <span className="font-medium">craig@stlwindowtinting.com</span>
                     </div>
                   </div>
                 )}
