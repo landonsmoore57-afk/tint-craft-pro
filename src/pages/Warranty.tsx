@@ -757,7 +757,7 @@ export default function Warranty() {
               </div>
 
               {/* Details Box */}
-              <div className="mb-4 bg-gradient-to-br from-slate-50 to-white border-2 border-[#0E2535]/20 rounded-lg p-4 shadow-sm">
+              <div className="my-5 bg-gradient-to-br from-slate-50 to-white border-2 border-[#0E2535]/20 rounded-lg p-4 shadow-sm">
                 <div className="grid grid-cols-1 gap-3">
                   <div className="flex items-start gap-3">
                     <div className="w-32 flex-shrink-0">
