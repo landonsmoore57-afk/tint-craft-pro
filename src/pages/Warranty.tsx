@@ -805,7 +805,7 @@ export default function Warranty() {
                         return (
                           <div key={index} className="flex justify-between items-center mt-4">
                             {/* Left side - signature block text */}
-                            <div style={{ width: "40%", transform: "translateY(-7.5%)" }}>
+                            <div style={{ width: "40%", transform: "translateY(-15%)" }}>
                               {nextLines.map((l, i) => (
                                 <div key={i}>{l}</div>
                               ))}
