@@ -738,18 +738,16 @@ export default function Warranty() {
 
               {/* Title Section */}
               <div className="mb-6 text-center">
-                <div className="inline-block">
-                  <h2
-                    className="text-3xl font-bold tracking-wide mb-2 relative"
-                    style={{ color: "#0E2535" }}
-                  >
-                    WARRANTY CERTIFICATE
-                  </h2>
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <div className="h-px bg-gradient-to-r from-transparent via-[#0E2535] to-transparent w-32" />
-                    <div className="w-2 h-2 rounded-full bg-[#0E2535]" />
-                    <div className="h-px bg-gradient-to-r from-transparent via-[#0E2535] to-transparent w-32" />
-                  </div>
+                <h2
+                  className="text-3xl font-bold tracking-wide mb-2"
+                  style={{ color: "#0E2535" }}
+                >
+                  WARRANTY CERTIFICATE
+                </h2>
+                <div className="flex items-center justify-center gap-2">
+                  <div className="h-px bg-[#0E2535] w-32" />
+                  <div className="w-2 h-2 rounded-full bg-[#0E2535]" />
+                  <div className="h-px bg-[#0E2535] w-32" />
                 </div>
               </div>
 
