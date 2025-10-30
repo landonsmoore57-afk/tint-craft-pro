@@ -699,17 +699,17 @@ export default function Warranty() {
             {/* Top Accent Bar */}
             <div className="h-2 bg-gradient-to-r from-[#0E2535] via-[#1a3a52] to-[#0E2535]" />
             
-            <div style={{ padding: "1in" }}>
+            <div style={{ padding: "0.75in" }}>
               {/* Header with Centered Logo */}
-              <div className="mb-8">
+              <div className="mb-4">
                 {showLogo && (
-                  <div className="flex flex-col items-center mb-6">
+                  <div className="flex flex-col items-center mb-4">
                     <img 
                       src={logo} 
                       alt="St. Louis Window Tinting" 
-                      className="h-24 w-auto animate-fade-in mb-3" 
+                      className="h-20 w-auto animate-fade-in mb-2" 
                     />
-                    <div className="flex items-center gap-2 text-lg font-semibold" style={{ color: "#FF6B35" }}>
+                    <div className="flex items-center gap-2 text-base font-semibold" style={{ color: "#FF6B35" }}>
                       <span>Residential</span>
                       <span>•</span>
                       <span>Commercial</span>
@@ -742,22 +742,22 @@ export default function Warranty() {
               </div>
 
               {/* Title Section */}
-              <div className="mb-6 text-center">
+              <div className="mb-4" style={{ textAlign: "center" }}>
                 <h2
-                  className="text-3xl font-bold tracking-wide mb-2"
-                  style={{ color: "#0E2535" }}
+                  className="text-2xl font-bold tracking-wide"
+                  style={{ color: "#0E2535", marginBottom: "8px" }}
                 >
                   WARRANTY CERTIFICATE
                 </h2>
-                <div className="flex items-center justify-center gap-2">
-                  <div className="h-px bg-[#0E2535] w-32" />
-                  <div className="w-2 h-2 rounded-full bg-[#0E2535]" />
-                  <div className="h-px bg-[#0E2535] w-32" />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                  <div style={{ height: "1px", backgroundColor: "#0E2535", width: "128px" }} />
+                  <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#0E2535" }} />
+                  <div style={{ height: "1px", backgroundColor: "#0E2535", width: "128px" }} />
                 </div>
               </div>
 
               {/* Details Box */}
-              <div className="mb-6 bg-gradient-to-br from-slate-50 to-white border-2 border-[#0E2535]/20 rounded-lg p-5 shadow-sm">
+              <div className="mb-4 bg-gradient-to-br from-slate-50 to-white border-2 border-[#0E2535]/20 rounded-lg p-4 shadow-sm">
                 <div className="grid grid-cols-1 gap-3">
                   <div className="flex items-start gap-3">
                     <div className="w-32 flex-shrink-0">
@@ -787,11 +787,11 @@ export default function Warranty() {
               </div>
 
               {/* Body Content */}
-              <div className="mb-10">
+              <div className="mb-6">
                 <div className="border-l-4 border-[#0E2535] pl-6 py-2">
                   <div
-                    className="text-base leading-relaxed text-slate-700"
-                    style={{ lineHeight: "1.8" }}
+                    className="text-sm leading-relaxed text-slate-700"
+                    style={{ lineHeight: "1.6" }}
                   >
                     {processedBodyCopy.split('\n').map((line, index, array) => {
                       // Check if we're at Craig Moore line (signature block starts)
@@ -812,7 +812,7 @@ export default function Warranty() {
                 
                 {/* Signature block - outside the bordered section */}
                 {showSignature && processedBodyCopy.includes('Craig Moore') && (
-                  <div className="pl-6 mt-4">
+                  <div className="pl-6 mt-3">
                     <div className="flex justify-between items-center">
                       {/* Left side - signature block text */}
                       <div style={{ width: "40%", transform: "translateY(-15%)" }}>
@@ -826,7 +826,7 @@ export default function Warranty() {
                         <img 
                           src={signatureImg} 
                           alt="Craig Moore Signature"
-                          className="w-96 h-auto"
+                          className="w-80 h-auto"
                           style={{ 
                             filter: "contrast(1.3) brightness(0.3)",
                             imageRendering: "crisp-edges"
