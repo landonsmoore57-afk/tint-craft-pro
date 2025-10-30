@@ -517,7 +517,7 @@ export type Database = {
           effective_date: string
           footer_note: string | null
           id: string
-          issue_date: string
+          issue_date: string | null
           project_address: string | null
           project_name: string
           recipient_address: string | null
@@ -533,7 +533,7 @@ export type Database = {
           effective_date: string
           footer_note?: string | null
           id?: string
-          issue_date?: string
+          issue_date?: string | null
           project_address?: string | null
           project_name: string
           recipient_address?: string | null
@@ -549,7 +549,7 @@ export type Database = {
           effective_date?: string
           footer_note?: string | null
           id?: string
-          issue_date?: string
+          issue_date?: string | null
           project_address?: string | null
           project_name?: string
           recipient_address?: string | null

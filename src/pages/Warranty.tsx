@@ -60,7 +60,7 @@ export default function Warranty() {
   const [projectName, setProjectName] = useState("");
   const [projectAddress, setProjectAddress] = useState("");
   const [bodyCopy, setBodyCopy] = useState(DEFAULT_BODY_TEMPLATE);
-  const [issueDate, setIssueDate] = useState<Date>(new Date());
+  const [issueDate, setIssueDate] = useState<Date | null>(new Date());
   const [recipientName, setRecipientName] = useState("");
   const [recipientAddress, setRecipientAddress] = useState("");
   const [footerNote, setFooterNote] = useState("");
@@ -112,7 +112,7 @@ export default function Warranty() {
     setProjectName(warranty.project_name);
     setProjectAddress(warranty.project_address || "");
     setBodyCopy(warranty.body_copy);
-    setIssueDate(new Date(warranty.issue_date));
+    setIssueDate(warranty.issue_date ? new Date(warranty.issue_date) : null);
     setRecipientName(warranty.recipient_name || "");
     setRecipientAddress(warranty.recipient_address || "");
     setFooterNote(warranty.footer_note || "");
@@ -158,7 +158,7 @@ export default function Warranty() {
       project_name: projectName,
       project_address: projectAddress || null,
       body_copy: bodyCopy,
-      issue_date: format(issueDate, "yyyy-MM-dd"),
+      issue_date: issueDate ? format(issueDate, "yyyy-MM-dd") : null,
       recipient_name: recipientName || null,
       recipient_address: recipientAddress || null,
       footer_note: footerNote || null,
@@ -244,7 +244,7 @@ export default function Warranty() {
   };
 
   const effectiveDateLong = format(effectiveDate, "MMMM d, yyyy");
-  const issueDateLong = format(issueDate, "MMMM d, yyyy");
+  const issueDateLong = issueDate ? format(issueDate, "MMMM d, yyyy") : null;
   const processedBodyCopy = bodyCopy.replace(/\{\{effective_date_long\}\}/g, effectiveDateLong);
   const isValid = projectName.trim() !== "";
 
@@ -339,7 +339,7 @@ export default function Warranty() {
       if (recipientAddress) text += recipientAddress + "\n";
       text += "\n";
     }
-    text += `${issueDateLong}\n\n`;
+    if (issueDateLong) text += `${issueDateLong}\n\n`;
     text += `WARRANTY\n\n`;
     text += `Effective Date: ${effectiveDateLong}\n`;
     text += `Project: ${projectName}\n`;
@@ -569,30 +569,35 @@ export default function Warranty() {
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className="flex-1 justify-start text-left font-normal"
+                        className={cn(
+                          "flex-1 justify-start text-left font-normal",
+                          !issueDate && "text-muted-foreground"
+                        )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(issueDate, "PPP")}
+                        {issueDate ? format(issueDate, "PPP") : <span>No date</span>}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
-                        selected={issueDate}
-                        onSelect={(date) => date && setIssueDate(date)}
+                        selected={issueDate || undefined}
+                        onSelect={(date) => setIssueDate(date || null)}
                         initialFocus
                         className="pointer-events-auto"
                       />
                     </PopoverContent>
                   </Popover>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setIssueDate(new Date())}
-                    className="flex-shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                  {issueDate && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setIssueDate(null)}
+                      className="flex-shrink-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -714,10 +719,12 @@ export default function Warranty() {
                     )}
                   </div>
                   
-                  <div className="text-right">
-                    <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">Issue Date</div>
-                    <div className="text-sm font-medium text-slate-900">{issueDateLong}</div>
-                  </div>
+                  {issueDateLong && (
+                    <div className="text-right">
+                      <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">Issue Date</div>
+                      <div className="text-sm font-medium text-slate-900">{issueDateLong}</div>
+                    </div>
+                  )}
                 </div>
               </div>
 
