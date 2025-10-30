@@ -104,7 +104,7 @@ export default function Warranty() {
     setFooterNote("");
     setShowMoreFields(false);
     setShowLogo(true);
-    setShowSignature(false);
+    setShowSignature(true);
   };
 
   const loadWarranty = (warranty: Warranty) => {
