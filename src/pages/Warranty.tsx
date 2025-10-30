@@ -693,13 +693,13 @@ export default function Warranty() {
             
             <div style={{ padding: "1in" }}>
               {/* Header with Centered Logo */}
-              <div className="mb-12">
+              <div className="mb-8">
                 {showLogo && (
-                  <div className="flex justify-center mb-10">
+                  <div className="flex justify-center mb-6">
                     <img 
                       src={logo} 
                       alt="St. Louis Window Tinting" 
-                      className="h-28 w-auto animate-fade-in" 
+                      className="h-24 w-auto animate-fade-in" 
                     />
                   </div>
                 )}
@@ -729,10 +729,10 @@ export default function Warranty() {
               </div>
 
               {/* Title Section */}
-              <div className="mb-10 text-center">
+              <div className="mb-6 text-center">
                 <div className="inline-block">
                   <h2
-                    className="text-3xl font-bold tracking-wide mb-3 relative"
+                    className="text-3xl font-bold tracking-wide mb-2 relative"
                     style={{ color: "#0E2535" }}
                   >
                     WARRANTY CERTIFICATE
@@ -746,8 +746,8 @@ export default function Warranty() {
               </div>
 
               {/* Details Box */}
-              <div className="mb-10 bg-gradient-to-br from-slate-50 to-white border-2 border-[#0E2535]/20 rounded-lg p-6 shadow-sm">
-                <div className="grid grid-cols-1 gap-4">
+              <div className="mb-6 bg-gradient-to-br from-slate-50 to-white border-2 border-[#0E2535]/20 rounded-lg p-5 shadow-sm">
+                <div className="grid grid-cols-1 gap-3">
                   <div className="flex items-start gap-3">
                     <div className="w-32 flex-shrink-0">
                       <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Effective Date</span>
@@ -776,7 +776,7 @@ export default function Warranty() {
               </div>
 
               {/* Body Content */}
-              <div className="mb-16">
+              <div className="mb-10">
                 <div className="border-l-4 border-[#0E2535] pl-6 py-2">
                   <div
                     className="text-base leading-relaxed text-slate-700"
@@ -838,7 +838,7 @@ export default function Warranty() {
 
               {/* Footer */}
               {footerNote && (
-                <div className="mt-16 pt-6 border-t-2 border-slate-200">
+                <div className="mt-8 pt-4 border-t-2 border-slate-200">
                   <div className="text-xs text-slate-500 leading-relaxed">
                     {footerNote}
                   </div>
