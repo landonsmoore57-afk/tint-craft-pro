@@ -772,19 +772,34 @@ export default function Warranty() {
               <div className="mb-16">
                 <div className="border-l-4 border-[#0E2535] pl-6 py-2">
                   <div
-                    className="text-base whitespace-pre-line leading-relaxed text-slate-700"
+                    className="text-base leading-relaxed text-slate-700"
                     style={{ lineHeight: "1.8" }}
                   >
-                    {processedBodyCopy.split('\n').map((line, index) => {
-                      // Check if this line contains "Craig Moore"
-                      if (line.includes('Craig Moore') && showSignature) {
-                        const beforeCraig = line.substring(0, line.indexOf('Craig Moore'));
+                    {processedBodyCopy.split('\n').map((line, index, array) => {
+                      // Check if we're at Craig Moore line (signature block starts)
+                      const isCraigMooreLine = line.trim() === 'Craig Moore';
+                      const isSignatureBlock = isCraigMooreLine || 
+                        (index > 0 && array[index - 1].trim() === 'Craig Moore') ||
+                        (index > 1 && array[index - 2].trim() === 'Craig Moore');
+                      
+                      // If this is the start of the signature block and signature is enabled
+                      if (isCraigMooreLine && showSignature) {
+                        // Get the next two lines (Owner/President and St. Louis Window Tinting)
+                        const nextLines = [line, array[index + 1], array[index + 2]].filter(Boolean);
+                        
                         return (
-                          <div key={index}>
-                            <div className="mb-8">{beforeCraig}</div>
-                            <div className="flex justify-end items-center">
+                          <div key={index} className="flex justify-between items-start mt-4">
+                            {/* Left side - signature block text */}
+                            <div className="flex-1">
+                              {nextLines.map((l, i) => (
+                                <div key={i}>{l}</div>
+                              ))}
+                            </div>
+                            
+                            {/* Right side - cursive signature */}
+                            <div className="flex items-center justify-end flex-1">
                               <span 
-                                className="text-5xl mr-8" 
+                                className="text-5xl" 
                                 style={{ 
                                   fontFamily: "'Dancing Script', 'Brush Script MT', 'Lucida Handwriting', cursive",
                                   color: "#0E2535",
@@ -798,6 +813,16 @@ export default function Warranty() {
                           </div>
                         );
                       }
+                      
+                      // Skip the Owner/President and St. Louis Window Tinting lines if signature is shown
+                      if (showSignature && index > 0) {
+                        const prevLine = array[index - 1]?.trim();
+                        const prevPrevLine = index > 1 ? array[index - 2]?.trim() : '';
+                        if (prevLine === 'Craig Moore' || prevPrevLine === 'Craig Moore') {
+                          return null;
+                        }
+                      }
+                      
                       return <div key={index}>{line}</div>;
                     })}
                   </div>
