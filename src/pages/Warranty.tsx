@@ -693,7 +693,7 @@ export default function Warranty() {
         <div className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 to-slate-100 p-8">
           <div
             id="warranty-preview"
-            className="max-w-[8.5in] mx-auto bg-white shadow-2xl rounded-sm overflow-hidden"
+            className="max-w-[8.5in] mx-auto bg-white shadow-2xl rounded-sm overflow-hidden flex flex-col"
             style={{
               minHeight: "11in",
               fontFamily: "Inter, system-ui, sans-serif",
@@ -702,7 +702,7 @@ export default function Warranty() {
             {/* Top Accent Bar */}
             <div className="h-2 bg-gradient-to-r from-[#0E2535] via-[#1a3a52] to-[#0E2535]" />
             
-            <div style={{ padding: "0.75in" }}>
+            <div style={{ padding: "0.75in", flex: "1" }}>
               {/* Header with Centered Logo */}
               <div className="mb-4">
                 {showLogo && (
@@ -818,10 +818,11 @@ export default function Warranty() {
                   <div style={{ paddingLeft: "24px", marginTop: "12px" }}>
                     <div className="flex justify-between items-center">
                       {/* Left side - signature block text */}
-                      <div style={{ width: "40%", transform: "translateY(-15%)" }}>
+                      <div style={{ width: "40%", transform: "translateY(-25%)" }}>
                         <div>Craig Moore</div>
                         <div>Owner/President</div>
                         <div>St. Louis Window Tinting</div>
+                        <div className="mt-2 text-sm font-medium text-slate-700">314-799-9411</div>
                       </div>
                       
                       {/* Right side - actual signature image */}
@@ -852,7 +853,7 @@ export default function Warranty() {
             </div>
             
             {/* Bottom Accent Bar */}
-            <div className="h-2 bg-gradient-to-r from-[#0E2535] via-[#1a3a52] to-[#0E2535] mt-auto" />
+            <div className="h-2 bg-gradient-to-r from-[#0E2535] via-[#1a3a52] to-[#0E2535]" />
           </div>
         </div>
       </div>
