@@ -12,6 +12,7 @@ import JobDetail from "./pages/JobDetail";
 import Films from "./pages/Films";
 import Materials from "./pages/Materials";
 import Settings from "./pages/Settings";
+import Warranty from "./pages/Warranty";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/jobs/:assignmentId" element={<JobDetail />} />
             <Route path="/films" element={<Films />} />
             <Route path="/materials" element={<Materials />} />
+            <Route path="/warranty" element={<Warranty />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

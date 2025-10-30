@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { FileText, Film, Package, Settings as SettingsIcon, LogOut, Menu, Sparkles, X, Calendar } from "lucide-react";
+import { FileText, Film, Package, Settings as SettingsIcon, LogOut, Menu, Sparkles, X, Calendar, FileCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function Layout() {
@@ -33,6 +33,7 @@ export default function Layout() {
   const allNavItems = [
     { path: "/", label: "Quotes", icon: FileText, roles: ['admin'] },
     { path: "/jobs", label: "Jobs", icon: Calendar, roles: ['admin', 'tinter'] },
+    { path: "/warranty", label: "Warranty", icon: FileCheck, roles: ['admin'] },
     { path: "/films", label: "Films", icon: Film, roles: ['admin'] },
     { path: "/materials", label: "Materials", icon: Package, roles: ['admin'] },
     { path: "/settings", label: "Settings", icon: SettingsIcon, roles: ['admin'] },
