@@ -791,7 +791,7 @@ export default function Warranty() {
 
               {/* Body Content */}
               <div className="mb-6">
-                <div className="border-l-4 border-[#0E2535] pl-6 py-2">
+                <div style={{ borderLeft: "4px solid #0E2535", paddingLeft: "24px", paddingTop: "8px", paddingBottom: "8px" }}>
                   <div
                     className="text-sm leading-relaxed text-slate-700"
                     style={{ lineHeight: "1.6" }}
@@ -815,7 +815,7 @@ export default function Warranty() {
                 
                 {/* Signature block - outside the bordered section */}
                 {showSignature && processedBodyCopy.includes('Craig Moore') && (
-                  <div className="pl-6 mt-3">
+                  <div style={{ paddingLeft: "24px", marginTop: "12px" }}>
                     <div className="flex justify-between items-center">
                       {/* Left side - signature block text */}
                       <div style={{ width: "40%", transform: "translateY(-15%)" }}>
