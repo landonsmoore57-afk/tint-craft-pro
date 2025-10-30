@@ -137,7 +137,19 @@ export default function Warranty() {
       return false;
     }
 
+    // Get current user from localStorage (custom auth)
+    const storedUserId = localStorage.getItem('user_id');
+    if (!storedUserId) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to save warranties",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     const warrantyData = {
+      user_id: storedUserId,
       effective_date: format(effectiveDate, "yyyy-MM-dd"),
       project_name: projectName,
       project_address: projectAddress || null,
@@ -156,6 +168,7 @@ export default function Warranty() {
         .eq("id", currentWarrantyId);
 
       if (error) {
+        console.error("Update error:", error);
         toast({
           title: "Error",
           description: "Failed to update warranty",
@@ -169,23 +182,14 @@ export default function Warranty() {
         description: "Warranty updated successfully",
       });
     } else {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) {
-        toast({
-          title: "Error",
-          description: "You must be logged in to save warranties",
-          variant: "destructive",
-        });
-        return false;
-      }
-
       const { data, error } = await supabase
         .from("warranties")
-        .insert({ ...warrantyData, user_id: session.session.user.id })
+        .insert(warrantyData)
         .select()
         .single();
 
       if (error) {
+        console.error("Insert error:", error);
         toast({
           title: "Error",
           description: "Failed to save warranty",
@@ -254,17 +258,42 @@ export default function Warranty() {
     const element = document.getElementById("warranty-preview");
     if (!element) return;
 
+    // Clone the element to avoid modifying the visible preview
+    const clonedElement = element.cloneNode(true) as HTMLElement;
+    
+    // Convert SVG logo to base64 for PDF rendering
+    const logoImg = clonedElement.querySelector('img[alt="St. Louis Window Tinting"]') as HTMLImageElement;
+    if (logoImg && showLogo) {
+      try {
+        // Fetch the SVG and convert to base64
+        const response = await fetch(logo);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        await new Promise((resolve) => {
+          reader.onloadend = resolve;
+          reader.readAsDataURL(blob);
+        });
+        logoImg.src = reader.result as string;
+      } catch (error) {
+        console.error("Error loading logo for PDF:", error);
+      }
+    }
+
     const filename = `Warranty - ${projectName} - ${format(effectiveDate, "yyyy-MM-dd")}.pdf`;
 
     const opt = {
-      margin: 1,
+      margin: 0,
       filename,
       image: { type: "jpeg" as const, quality: 0.98 },
-      html2canvas: { scale: 2 },
+      html2canvas: { 
+        scale: 2,
+        useCORS: true,
+        logging: false
+      },
       jsPDF: { unit: "in", format: "letter", orientation: "portrait" as const },
     };
 
-    html2pdf().set(opt).from(element).save();
+    html2pdf().set(opt).from(clonedElement).save();
 
     toast({
       title: "PDF Generated",
