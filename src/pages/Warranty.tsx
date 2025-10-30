@@ -798,19 +798,22 @@ export default function Warranty() {
                         return (
                           <div key={index} className="flex justify-between items-start mt-4">
                             {/* Left side - signature block text */}
-                            <div className="flex-1">
+                            <div style={{ width: "40%" }}>
                               {nextLines.map((l, i) => (
                                 <div key={i}>{l}</div>
                               ))}
                             </div>
                             
                             {/* Right side - actual signature image */}
-                            <div className="flex items-center justify-end flex-1">
+                            <div className="flex items-center justify-start flex-1 pl-8">
                               <img 
                                 src={signatureImg} 
                                 alt="Craig Moore Signature"
-                                className="h-20 w-auto"
-                                style={{ filter: "invert(15%) sepia(15%) saturate(1500%) hue-rotate(165deg)" }}
+                                className="w-96 h-auto"
+                                style={{ 
+                                  filter: "contrast(1.3) brightness(0.3)",
+                                  imageRendering: "crisp-edges"
+                                }}
                               />
                             </div>
                           </div>
