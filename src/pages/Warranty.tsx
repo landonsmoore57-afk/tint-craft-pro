@@ -796,7 +796,7 @@ export default function Warranty() {
                         const nextLines = [line, array[index + 1], array[index + 2]].filter(Boolean);
                         
                         return (
-                          <div key={index} className="flex justify-between items-start mt-4">
+                          <div key={index} className="flex justify-between items-center mt-4">
                             {/* Left side - signature block text */}
                             <div style={{ width: "40%" }}>
                               {nextLines.map((l, i) => (
