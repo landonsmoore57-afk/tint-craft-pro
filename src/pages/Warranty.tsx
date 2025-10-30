@@ -797,49 +797,42 @@ export default function Warranty() {
                         (index > 0 && array[index - 1].trim() === 'Craig Moore') ||
                         (index > 1 && array[index - 2].trim() === 'Craig Moore');
                       
-                      // If this is the start of the signature block and signature is enabled
-                      if (isCraigMooreLine && showSignature) {
-                        // Get the next two lines (Owner/President and St. Louis Window Tinting)
-                        const nextLines = [line, array[index + 1], array[index + 2]].filter(Boolean);
-                        
-                        return (
-                          <div key={index} className="flex justify-between items-center mt-4">
-                            {/* Left side - signature block text */}
-                            <div style={{ width: "40%", transform: "translateY(-15%)" }}>
-                              {nextLines.map((l, i) => (
-                                <div key={i}>{l}</div>
-                              ))}
-                            </div>
-                            
-                            {/* Right side - actual signature image */}
-                            <div className="flex items-center justify-start flex-1 pl-8">
-                              <img 
-                                src={signatureImg} 
-                                alt="Craig Moore Signature"
-                                className="w-96 h-auto"
-                                style={{ 
-                                  filter: "contrast(1.3) brightness(0.3)",
-                                  imageRendering: "crisp-edges"
-                                }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      }
-                      
-                      // Skip the Owner/President and St. Louis Window Tinting lines if signature is shown
-                      if (showSignature && index > 0) {
-                        const prevLine = array[index - 1]?.trim();
-                        const prevPrevLine = index > 1 ? array[index - 2]?.trim() : '';
-                        if (prevLine === 'Craig Moore' || prevPrevLine === 'Craig Moore') {
-                          return null;
-                        }
+                      // Skip signature block lines as they will be rendered separately
+                      if (showSignature && isSignatureBlock) {
+                        return null;
                       }
                       
                       return <div key={index}>{line}</div>;
                     })}
                   </div>
                 </div>
+                
+                {/* Signature block - outside the bordered section */}
+                {showSignature && processedBodyCopy.includes('Craig Moore') && (
+                  <div className="pl-6 mt-4">
+                    <div className="flex justify-between items-center">
+                      {/* Left side - signature block text */}
+                      <div style={{ width: "40%", transform: "translateY(-15%)" }}>
+                        <div>Craig Moore</div>
+                        <div>Owner/President</div>
+                        <div>St. Louis Window Tinting</div>
+                      </div>
+                      
+                      {/* Right side - actual signature image */}
+                      <div className="flex items-center justify-start flex-1 pl-8">
+                        <img 
+                          src={signatureImg} 
+                          alt="Craig Moore Signature"
+                          className="w-96 h-auto"
+                          style={{ 
+                            filter: "contrast(1.3) brightness(0.3)",
+                            imageRendering: "crisp-edges"
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Footer */}
