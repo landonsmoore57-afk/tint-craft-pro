@@ -109,11 +109,18 @@ export default function Warranty() {
 
   const loadWarranty = (warranty: Warranty) => {
     setCurrentWarrantyId(warranty.id);
-    setEffectiveDate(new Date(warranty.effective_date));
+    // Parse dates correctly to avoid timezone shift
+    const [year, month, day] = warranty.effective_date.split('-').map(Number);
+    setEffectiveDate(new Date(year, month - 1, day));
     setProjectName(warranty.project_name);
     setProjectAddress(warranty.project_address || "");
     setBodyCopy(warranty.body_copy);
-    setIssueDate(warranty.issue_date ? new Date(warranty.issue_date) : null);
+    if (warranty.issue_date) {
+      const [iYear, iMonth, iDay] = warranty.issue_date.split('-').map(Number);
+      setIssueDate(new Date(iYear, iMonth - 1, iDay));
+    } else {
+      setIssueDate(null);
+    }
     setRecipientName(warranty.recipient_name || "");
     setRecipientAddress(warranty.recipient_address || "");
     setFooterNote(warranty.footer_note || "");
@@ -798,7 +805,7 @@ export default function Warranty() {
                         return (
                           <div key={index} className="flex justify-between items-center mt-4">
                             {/* Left side - signature block text */}
-                            <div style={{ width: "40%", marginTop: "-8px" }}>
+                            <div style={{ width: "40%", transform: "translateY(-10%)" }}>
                               {nextLines.map((l, i) => (
                                 <div key={i}>{l}</div>
                               ))}
