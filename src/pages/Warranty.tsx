@@ -590,78 +590,124 @@ export default function Warranty() {
         </div>
 
         {/* Right Preview */}
-        <div className="flex-1 overflow-y-auto bg-muted p-8">
+        <div className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 to-slate-100 p-8">
           <div
             id="warranty-preview"
-            className="max-w-[8.5in] mx-auto bg-white shadow-lg"
+            className="max-w-[8.5in] mx-auto bg-white shadow-2xl rounded-sm overflow-hidden"
             style={{
               minHeight: "11in",
-              padding: "1in",
               fontFamily: "Inter, system-ui, sans-serif",
             }}
           >
-            {/* Header */}
-            <div className="flex justify-between items-start mb-8">
-              <div>
+            {/* Top Accent Bar */}
+            <div className="h-2 bg-gradient-to-r from-[#0E2535] via-[#1a3a52] to-[#0E2535]" />
+            
+            <div style={{ padding: "1in" }}>
+              {/* Header with Centered Logo */}
+              <div className="mb-12">
                 {showLogo && (
-                  <img src={logo} alt="St. Louis Window Tinting" className="h-16 mb-4" />
+                  <div className="flex justify-center mb-10">
+                    <img 
+                      src={logo} 
+                      alt="St. Louis Window Tinting" 
+                      className="h-28 w-auto animate-fade-in" 
+                    />
+                  </div>
                 )}
-                {(recipientName || recipientAddress) && (
-                  <div className="text-sm space-y-0.5">
-                    {recipientName && <div className="font-medium">{recipientName}</div>}
-                    {recipientAddress && (
-                      <div className="whitespace-pre-line text-muted-foreground">
-                        {recipientAddress}
+                
+                <div className="flex justify-between items-start gap-8">
+                  <div className="flex-1">
+                    {(recipientName || recipientAddress) && (
+                      <div className="text-sm space-y-1 bg-slate-50 p-4 rounded-md border border-slate-200">
+                        <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">To:</div>
+                        {recipientName && <div className="font-semibold text-slate-900">{recipientName}</div>}
+                        {recipientAddress && (
+                          <div className="whitespace-pre-line text-slate-600 leading-relaxed">
+                            {recipientAddress}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
+                  
+                  <div className="text-right">
+                    <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">Issue Date</div>
+                    <div className="text-sm font-medium text-slate-900">{issueDateLong}</div>
+                  </div>
+                </div>
               </div>
-              <div className="text-sm text-right text-muted-foreground">
-                {issueDateLong}
-              </div>
-            </div>
 
-            {/* Title */}
-            <div className="mb-6 text-center">
-              <h2
-                className="text-xl font-medium tracking-wider mb-2"
-                style={{ color: "#0E2535" }}
-              >
-                WARRANTY
-              </h2>
-              <div className="h-px bg-border w-24 mx-auto" style={{ backgroundColor: "#0E2535" }} />
-            </div>
+              {/* Title Section */}
+              <div className="mb-10 text-center">
+                <div className="inline-block">
+                  <h2
+                    className="text-3xl font-bold tracking-wide mb-3 relative"
+                    style={{ color: "#0E2535" }}
+                  >
+                    WARRANTY CERTIFICATE
+                  </h2>
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <div className="h-px bg-gradient-to-r from-transparent via-[#0E2535] to-transparent w-32" />
+                    <div className="w-2 h-2 rounded-full bg-[#0E2535]" />
+                    <div className="h-px bg-gradient-to-r from-transparent via-[#0E2535] to-transparent w-32" />
+                  </div>
+                </div>
+              </div>
 
-            {/* Details */}
-            <div className="mb-6 space-y-1 text-sm">
-              <div>
-                <span className="font-medium">Effective Date:</span> {effectiveDateLong}
+              {/* Details Box */}
+              <div className="mb-10 bg-gradient-to-br from-slate-50 to-white border-2 border-[#0E2535]/20 rounded-lg p-6 shadow-sm">
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-32 flex-shrink-0">
+                      <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Effective Date</span>
+                    </div>
+                    <div className="flex-1 font-medium text-slate-900 text-base">{effectiveDateLong}</div>
+                  </div>
+                  <div className="h-px bg-slate-200" />
+                  <div className="flex items-start gap-3">
+                    <div className="w-32 flex-shrink-0">
+                      <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Project</span>
+                    </div>
+                    <div className="flex-1 font-medium text-slate-900 text-base">{projectName || "[Project Name]"}</div>
+                  </div>
+                  {projectAddress && (
+                    <>
+                      <div className="h-px bg-slate-200" />
+                      <div className="flex items-start gap-3">
+                        <div className="w-32 flex-shrink-0">
+                          <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Address</span>
+                        </div>
+                        <div className="flex-1 font-medium text-slate-900 text-base">{projectAddress}</div>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
-              <div>
-                <span className="font-medium">Project:</span> {projectName || "[Project Name]"}
+
+              {/* Body Content */}
+              <div className="mb-12">
+                <div className="border-l-4 border-[#0E2535] pl-6 py-2">
+                  <div
+                    className="text-base whitespace-pre-line leading-relaxed text-slate-700"
+                    style={{ lineHeight: "1.8" }}
+                  >
+                    {processedBodyCopy}
+                  </div>
+                </div>
               </div>
-              {projectAddress && (
-                <div>
-                  <span className="font-medium">Address:</span> {projectAddress}
+
+              {/* Footer */}
+              {footerNote && (
+                <div className="mt-16 pt-6 border-t-2 border-slate-200">
+                  <div className="text-xs text-slate-500 leading-relaxed">
+                    {footerNote}
+                  </div>
                 </div>
               )}
             </div>
-
-            {/* Body */}
-            <div
-              className="text-base whitespace-pre-line leading-relaxed mb-8"
-              style={{ lineHeight: "1.6" }}
-            >
-              {processedBodyCopy}
-            </div>
-
-            {/* Footer */}
-            {footerNote && (
-              <div className="mt-12 pt-4 border-t text-xs text-muted-foreground">
-                {footerNote}
-              </div>
-            )}
+            
+            {/* Bottom Accent Bar */}
+            <div className="h-2 bg-gradient-to-r from-[#0E2535] via-[#1a3a52] to-[#0E2535] mt-auto" />
           </div>
         </div>
       </div>
