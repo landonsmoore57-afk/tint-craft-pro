@@ -25,6 +25,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import html2pdf from "html2pdf.js";
 import logo from "@/assets/stlwt-logo.svg";
+import signatureImg from "@/assets/craig-signature.png";
 
 const DEFAULT_BODY_TEMPLATE = `St. Louis Window Tinting guarantees all materials and workmanship free of defect for a period of one (1) year from the date of substantial completion, {{effective_date_long}}. Work found defective during the guarantee period shall be replaced at the contractor's expense.
 
@@ -803,19 +804,14 @@ export default function Warranty() {
                               ))}
                             </div>
                             
-                            {/* Right side - cursive signature */}
+                            {/* Right side - actual signature image */}
                             <div className="flex items-center justify-end flex-1">
-                              <span 
-                                className="text-5xl" 
-                                style={{ 
-                                  fontFamily: "'Dancing Script', 'Brush Script MT', 'Lucida Handwriting', cursive",
-                                  color: "#0E2535",
-                                  fontWeight: 700,
-                                  letterSpacing: "0.05em"
-                                }}
-                              >
-                                Craig Moore
-                              </span>
+                              <img 
+                                src={signatureImg} 
+                                alt="Craig Moore Signature"
+                                className="h-20 w-auto"
+                                style={{ filter: "invert(15%) sepia(15%) saturate(1500%) hue-rotate(165deg)" }}
+                              />
                             </div>
                           </div>
                         );
