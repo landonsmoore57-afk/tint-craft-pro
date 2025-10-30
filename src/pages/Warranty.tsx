@@ -405,7 +405,10 @@ export default function Warranty() {
                       <div className="text-xs mb-1">{warranty.project_address}</div>
                     )}
                     <div className="text-xs">
-                      Effective: {format(new Date(warranty.effective_date), "MMM d, yyyy")}
+                      Effective: {(() => {
+                        const [year, month, day] = warranty.effective_date.split('-').map(Number);
+                        return format(new Date(year, month - 1, day), "MMM d, yyyy");
+                      })()}
                     </div>
                   </CardDescription>
                 </CardHeader>
