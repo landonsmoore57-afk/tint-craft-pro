@@ -523,6 +523,7 @@ export type Database = {
           recipient_address: string | null
           recipient_name: string | null
           show_logo: boolean | null
+          show_signature: boolean | null
           updated_at: string
           user_id: string
         }
@@ -538,6 +539,7 @@ export type Database = {
           recipient_address?: string | null
           recipient_name?: string | null
           show_logo?: boolean | null
+          show_signature?: boolean | null
           updated_at?: string
           user_id: string
         }
@@ -553,6 +555,7 @@ export type Database = {
           recipient_address?: string | null
           recipient_name?: string | null
           show_logo?: boolean | null
+          show_signature?: boolean | null
           updated_at?: string
           user_id?: string
         }

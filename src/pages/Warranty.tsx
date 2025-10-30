@@ -43,6 +43,7 @@ interface Warranty {
   recipient_address: string | null;
   footer_note: string | null;
   show_logo: boolean;
+  show_signature: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -65,6 +66,7 @@ export default function Warranty() {
   const [footerNote, setFooterNote] = useState("");
   const [showMoreFields, setShowMoreFields] = useState(false);
   const [showLogo, setShowLogo] = useState(true);
+  const [showSignature, setShowSignature] = useState(false);
 
   useEffect(() => {
     fetchWarranties();
@@ -101,6 +103,7 @@ export default function Warranty() {
     setFooterNote("");
     setShowMoreFields(false);
     setShowLogo(true);
+    setShowSignature(false);
   };
 
   const loadWarranty = (warranty: Warranty) => {
@@ -114,6 +117,7 @@ export default function Warranty() {
     setRecipientAddress(warranty.recipient_address || "");
     setFooterNote(warranty.footer_note || "");
     setShowLogo(warranty.show_logo);
+    setShowSignature(warranty.show_signature || false);
     setView("editor");
   };
 
@@ -159,6 +163,7 @@ export default function Warranty() {
       recipient_address: recipientAddress || null,
       footer_note: footerNote || null,
       show_logo: showLogo,
+      show_signature: showSignature,
     };
 
     if (currentWarrantyId) {
@@ -620,6 +625,19 @@ export default function Warranty() {
                   Show Logo
                 </Label>
               </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="show-signature"
+                  checked={showSignature}
+                  onChange={(e) => setShowSignature(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="show-signature" className="cursor-pointer">
+                  Add Signature
+                </Label>
+              </div>
             </CollapsibleContent>
           </Collapsible>
 
@@ -742,7 +760,26 @@ export default function Warranty() {
                     className="text-base whitespace-pre-line leading-relaxed text-slate-700"
                     style={{ lineHeight: "1.8" }}
                   >
-                    {processedBodyCopy}
+                    {processedBodyCopy.split('\n').map((line, index) => {
+                      // Check if this line contains "Craig Moore"
+                      if (line.includes('Craig Moore') && showSignature) {
+                        return (
+                          <div key={index} className="flex items-center gap-4">
+                            <span>{line}</span>
+                            <span 
+                              className="text-2xl" 
+                              style={{ 
+                                fontFamily: "'Brush Script MT', 'Lucida Handwriting', cursive",
+                                color: "#0E2535"
+                              }}
+                            >
+                              Craig Moore
+                            </span>
+                          </div>
+                        );
+                      }
+                      return <div key={index}>{line}</div>;
+                    })}
                   </div>
                 </div>
               </div>
